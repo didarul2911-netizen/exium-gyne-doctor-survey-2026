@@ -1,0 +1,58 @@
+{
+  "survey_title": "Exium MUPS — GERD and Pregnancy Survey",
+  "survey_subtitle": "GERD and Pregnancy Clinical Survey",
+  "questions": [
+    {
+      "id": "q1",
+      "number": 1,
+      "title_en": "Based on your clinical experience, in which trimester do your patients report the most GERD/gastric symptoms?",
+      "required": true,
+      "options": [
+        {
+          "code": "A",
+          "text_en": "First trimester"
+        },
+        {
+          "code": "B",
+          "text_en": "Second trimester"
+        },
+        {
+          "code": "C",
+          "text_en": "Third trimester"
+        },
+        {
+          "code": "D",
+          "text_en": "Throughout pregnancy (All trimesters)"
+        }
+      ]
+    },
+    {
+      "id": "q2",
+      "number": 2,
+      "title_en": "Which GERD symptom is most commonly reported by your pregnant patients?",
+      "required": true,
+      "options": [
+        {
+          "code": "A",
+          "text_en": "Heartburn (Retrosternal burning)"
+        },
+        {
+          "code": "B",
+          "text_en": "Acid regurgitation / sour taste"
+        },
+        {
+          "code": "C",
+          "text_en": "Epigastric pain / Upper abdominal discomfort"
+        },
+        {
+          "code": "D",
+          "text_en": "Belching"
+        },
+        {
+          "code": "E",
+          "text_en": "Other"
+        }
+      ]
+    }
+  ]
+}
