@@ -111,28 +111,23 @@ def build():
       }}
     }}
 
-    /* App Header */
+    /* App Header (2-Line Responsive Layout) */
     .app-header {{
       background: linear-gradient(135deg, #0f172a 0%, #0369a1 100%);
       color: white;
-      padding: 18px 20px;
+      padding: 12px 16px;
       position: sticky;
       top: 0;
       z-index: 50;
       box-shadow: 0 4px 20px rgba(15, 23, 42, 0.15);
     }}
 
-    .header-top {{
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }}
-
-    .brand-box {{
+    /* Line 1: Brand Logo & Title */
+    .header-brand-row {{
       display: flex;
       align-items: center;
       gap: 12px;
+      margin-bottom: 10px;
     }}
 
     .brand-logo {{
@@ -143,34 +138,53 @@ def build():
       padding: 3px 8px;
       border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      flex-shrink: 0;
+    }}
+
+    .header-title-box {{
+      flex: 1;
+      min-width: 0;
     }}
 
     .header-title-box h1 {{
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       letter-spacing: -0.2px;
       color: #ffffff;
-      line-height: 1.2;
+      line-height: 1.25;
+      margin: 0;
     }}
 
-    .header-actions {{
+    /* Line 2: Actions Bar (Live Cloud Sync, Reports, Admin) */
+    .header-actions-row {{
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 5px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }}
+
+    .header-actions-right {{
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }}
 
     .btn-icon {{
       background: rgba(255, 255, 255, 0.15);
       border: 1px solid rgba(255, 255, 255, 0.25);
       color: white;
-      border-radius: 10px;
-      width: 36px;
-      height: 36px;
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
       transition: all 0.2s;
     }}
 
@@ -182,14 +196,14 @@ def build():
       background: rgba(255, 255, 255, 0.15);
       border: 1px solid rgba(255, 255, 255, 0.25);
       color: white;
-      border-radius: 10px;
-      padding: 0 12px;
-      height: 36px;
+      border-radius: 8px;
+      padding: 0 10px;
+      height: 32px;
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 4px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       transition: all 0.2s;
       white-space: nowrap;
@@ -935,16 +949,18 @@ def build():
     .btn-cloud-sync {{
       font-size: 11px;
       font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 20px;
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
-      color: #475569;
+      padding: 0 10px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       cursor: pointer;
       transition: all 0.2s ease;
+      white-space: nowrap;
     }}
     .btn-cloud-sync:hover {{
       background: #f1f5f9;
@@ -1028,18 +1044,21 @@ def build():
   <div class="app-container">
     <!-- Header -->
     <header class="app-header">
-      <div class="header-top">
-        <div class="brand-box">
-          <img src="{logo_b64}" alt="Exium MUPS" class="brand-logo">
-          <div class="header-title-box">
-            <h1>GERD and Pregnancy Survey</h1>
-          </div>
+      <!-- Line 1: Logo and Title -->
+      <div class="header-brand-row">
+        <img src="{logo_b64}" alt="Exium MUPS" class="brand-logo">
+        <div class="header-title-box">
+          <h1>GERD and Pregnancy Survey</h1>
         </div>
-        <div class="header-actions">
-          <button class="btn-cloud-sync" id="btnHeaderCloudSync" title="Cloud Sync Status & Real-Time Sync">
-            <span class="status-dot" id="cloudStatusDot"></span>
-            <span id="cloudStatusText">Live Sync</span>
-          </button>
+      </div>
+
+      <!-- Line 2: Actions Bar (Live Cloud Sync, Reports, Admin) -->
+      <div class="header-actions-row">
+        <button class="btn-cloud-sync" id="btnHeaderCloudSync" title="Cloud Sync Status & Real-Time Sync">
+          <span class="status-dot" id="cloudStatusDot"></span>
+          <span id="cloudStatusText">Live Sync</span>
+        </button>
+        <div class="header-actions-right">
           <button class="btn-header-report" id="btnReportsOpen" title="Field Force Reports">📊 Reports</button>
           <button class="btn-icon" id="btnAdminOpen" title="Central Admin">⚙️</button>
         </div>
