@@ -1,12 +1,17 @@
 /**
  * Google Apps Script for Exium MUPS - GERD and Pregnancy Survey 2026
  * 
- * Updates in this version:
- * 1. Target Tab: Writes directly into the existing "Survey Responses" sheet tab (with space).
- * 2. Clean Columns: Removed Speciality, Chamber/Hospital, Doctor Phone (strictly 16 columns).
- * 3. Server-Side Strict Deduplication: Checks existing Doctor RPL ID & Survey ID to prevent duplicate rows.
- * 4. Single-Submit Integrity: Appends once and only once upon doctor submission.
- * 5. Clear All Data (Admin): Allows Admin to permanently wipe all response rows (keeping header intact).
+ * Updates in this version (5 Questions Support):
+ * 1. Target Tab: Writes directly into "Survey Responses" sheet tab.
+ * 2. 5 Survey Questions (22 Columns):
+ *    - Q1: Trimester of GERD occurrence
+ *    - Q2: Most common GERD symptom
+ *    - Q3: Lifestyle modification resolution rate
+ *    - Q4: First-choice medication
+ *    - Q5: Preferred PPI molecule
+ * 3. Server-Side Strict Deduplication: Checks Doctor RPL ID & Territory Code.
+ * 4. Single-Submit Integrity: Appends once upon doctor submission.
+ * 5. Clear All Data (Admin): Allows Admin to wipe all response rows.
  * 
  * How to update in Google Drive:
  * 1. Open your Google Sheet: "Exium_Gyne_Doctor_Survey_Master_2026".
@@ -16,18 +21,27 @@
  * 5. Change Version to: "New version", and click Deploy.
  */
 
+var HEADERS_22 = [
+  "Timestamp", "Zone", "Zonal Head", "Region", "Regional Head", 
+  "SAP Territory Code", "Territory Name", "SAP MIO Code", "MIO / Sr. MIO Name", 
+  "Doctor Full Name", "Doctor RPL ID", 
+  "Q1 Code", "Q1 Answer (Trimester)", 
+  "Q2 Code", "Q2 Answer (GERD Symptom)", 
+  "Q3 Code", "Q3 Answer (Lifestyle Resolution)", 
+  "Q4 Code", "Q4 Answer (First Choice Medicine)", 
+  "Q5 Code", "Q5 Answer (Preferred PPI Molecule)", 
+  "Survey Record ID"
+];
+
 function getTargetSheet(ss) {
   var sheet = ss.getSheetByName("Survey Responses") || ss.getSheetByName("Survey_Responses");
   if (!sheet) {
     sheet = ss.insertSheet("Survey Responses");
-    sheet.appendRow([
-      "Timestamp", "Zone", "Zonal Head", "Region", "Regional Head", 
-      "SAP Territory Code", "Territory Name", "SAP MIO Code", "MIO / Sr. MIO Name", 
-      "Doctor Full Name", "Doctor RPL ID", 
-      "Q1 Code", "Q1 Answer (Trimester)", "Q2 Code", "Q2 Answer (GERD Symptom)", "Survey Record ID"
-    ]);
-    sheet.getRange(1, 1, 1, 16).setBackground("#0284c7").setFontColor("#ffffff").setFontWeight("bold");
+    sheet.appendRow(HEADERS_22);
+    sheet.getRange(1, 1, 1, HEADERS_22.length).setBackground("#0284c7").setFontColor("#ffffff").setFontWeight("bold");
     sheet.setFrozenRows(1);
+  } else if (sheet.getLastColumn() < HEADERS_22.length) {
+    sheet.getRange(1, 1, 1, HEADERS_22.length).setValues([HEADERS_22]).setBackground("#0284c7").setFontColor("#ffffff").setFontWeight("bold");
   }
   return sheet;
 }
@@ -49,8 +63,9 @@ function doPost(e) {
     // ADMIN ACTION: Clear All Data from Google Sheet
     if (data && (data.action === "clear_all" || data.action === "reset_all")) {
       var lastRow = sheet.getLastRow();
+      var lastCol = Math.max(sheet.getLastColumn(), HEADERS_22.length);
       if (lastRow > 1) {
-        sheet.getRange(2, 1, lastRow - 1, 16).clearContent();
+        sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
       }
       return ContentService.createTextOutput(JSON.stringify({
         status: "success",
@@ -63,12 +78,13 @@ function doPost(e) {
     // Build map of existing IDs in the sheet to PREVENT ANY DUPLICATE
     var existingIds = {};
     var lastRow = sheet.getLastRow();
+    var lastCol = Math.max(sheet.getLastColumn(), HEADERS_22.length);
     if (lastRow > 1) {
-      var existingData = sheet.getRange(2, 1, lastRow - 1, 16).getValues();
+      var existingData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
       for (var k = 0; k < existingData.length; k++) {
         var rowTerr = String(existingData[k][5] || "").trim();  // col 6: SAP Territory Code
         var rowDocRpl = String(existingData[k][10] || "").trim(); // col 11: Doctor RPL ID
-        var rowSurveyId = String(existingData[k][15] || "").trim(); // col 16: Survey Record ID
+        var rowSurveyId = String(existingData[k][existingData[k].length - 1] || "").trim(); // last col: Survey Record ID
         
         if (rowSurveyId) existingIds[rowSurveyId] = true;
         if (rowDocRpl && rowTerr) existingIds[rowDocRpl + "_" + rowTerr] = true;
@@ -97,7 +113,7 @@ function doPost(e) {
       if (surveyId) existingIds[surveyId] = true;
       if (dedupKey) existingIds[dedupKey] = true;
 
-      // Clean 16 Columns (NO Speciality, NO Chamber/Hospital, NO Doctor Phone)
+      // 22 Columns (5 Questions)
       rowsToAdd.push([
         r.formatted_time || r.timestamp || new Date().toLocaleString(),
         r.zone || "",
@@ -114,12 +130,18 @@ function doPost(e) {
         r.q1_answer_en || "",
         r.q2_code || "",
         r.q2_answer_en || "",
+        r.q3_code || "",
+        r.q3_answer_en || "",
+        r.q4_code || "",
+        r.q4_answer_en || "",
+        r.q5_code || "",
+        r.q5_answer_en || "",
         surveyId || ("SURV_" + Date.now() + "_" + Math.floor(Math.random()*10000))
       ]);
     }
 
     if (rowsToAdd.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAdd.length, 16).setValues(rowsToAdd);
+      sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAdd.length, HEADERS_22.length).setValues(rowsToAdd);
     }
 
     return ContentService.createTextOutput(JSON.stringify({
@@ -145,8 +167,9 @@ function doGet(e) {
     // ADMIN ACTION: Clear All Data via GET
     if (e && e.parameter && (e.parameter.action === "clear_all" || e.parameter.action === "reset_all")) {
       var lastRow = sheet.getLastRow();
+      var lastCol = Math.max(sheet.getLastColumn(), HEADERS_22.length);
       if (lastRow > 1) {
-        sheet.getRange(2, 1, lastRow - 1, 16).clearContent();
+        sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
       }
       return ContentService.createTextOutput(JSON.stringify({
         status: "success",
@@ -158,7 +181,7 @@ function doGet(e) {
       var count = sheet ? Math.max(0, sheet.getLastRow() - 1) : 0;
       return ContentService.createTextOutput(JSON.stringify({
         status: "ok",
-        app: "Exium GERD and Pregnancy Survey Backend",
+        app: "Exium GERD and Pregnancy Survey Backend (5 Questions)",
         sheet_name: sheet.getName(),
         total_records: count
       })).setMimeType(ContentService.MimeType.JSON);
@@ -172,6 +195,7 @@ function doGet(e) {
     var result = [];
     for (var r = 1; r < values.length; r++) {
       var row = values[r];
+      var is22Col = row.length >= 22;
       var obj = {
         formatted_time: String(row[0] || ""),
         timestamp: String(row[0] || ""),
@@ -189,7 +213,13 @@ function doGet(e) {
         q1_answer_en: String(row[12] || ""),
         q2_code: String(row[13] || ""),
         q2_answer_en: String(row[14] || ""),
-        id: String(row[15] || ("REC_" + r)),
+        q3_code: is22Col ? String(row[15] || "") : "",
+        q3_answer_en: is22Col ? String(row[16] || "") : "",
+        q4_code: is22Col ? String(row[17] || "") : "",
+        q4_answer_en: is22Col ? String(row[18] || "") : "",
+        q5_code: is22Col ? String(row[19] || "") : "",
+        q5_answer_en: is22Col ? String(row[20] || "") : "",
+        id: String(row[row.length - 1] || ("REC_" + r)),
         synced: true
       };
       result.push(obj);

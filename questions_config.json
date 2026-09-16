@@ -53,6 +53,86 @@
           "text_en": "Other"
         }
       ]
+    },
+    {
+      "id": "q3",
+      "number": 3,
+      "title_en": "In your clinical practice, how often does lifestyle modification alone resolve GERD in pregnancy?",
+      "required": true,
+      "options": [
+        {
+          "code": "A",
+          "text_en": "Rarely - Most patients need medication"
+        },
+        {
+          "code": "B",
+          "text_en": "Only helps in very mild cases"
+        },
+        {
+          "code": "C",
+          "text_en": "Relieves temporarily, but symptoms recur"
+        },
+        {
+          "code": "D",
+          "text_en": "Sufficient for most patients"
+        }
+      ]
+    },
+    {
+      "id": "q4",
+      "number": 4,
+      "title_en": "When prescribing medicine for GERD in pregnancy, what is your first choice?",
+      "required": true,
+      "options": [
+        {
+          "code": "A",
+          "text_en": "Antacids / Alginates"
+        },
+        {
+          "code": "B",
+          "text_en": "Proton Pump Inhibitors (PPIs)"
+        },
+        {
+          "code": "C",
+          "text_en": "H2 Blockers"
+        },
+        {
+          "code": "D",
+          "text_en": "Combination (Antacid + PPI)"
+        }
+      ]
+    },
+    {
+      "id": "q5",
+      "number": 5,
+      "title_en": "Which PPI molecule do you prescribe most for safety & efficacy in pregnancy?",
+      "required": true,
+      "options": [
+        {
+          "code": "A",
+          "text_en": "Esomeprazole"
+        },
+        {
+          "code": "B",
+          "text_en": "Omeprazole"
+        },
+        {
+          "code": "C",
+          "text_en": "Pantoprazole"
+        },
+        {
+          "code": "D",
+          "text_en": "Rabeprazole"
+        },
+        {
+          "code": "E",
+          "text_en": "Dexlansoprazole"
+        },
+        {
+          "code": "F",
+          "text_en": "Vonoprazan"
+        }
+      ]
     }
   ]
 }

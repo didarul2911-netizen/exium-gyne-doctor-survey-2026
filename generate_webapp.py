@@ -1230,27 +1230,12 @@ def build():
       <div class="screen" id="screenDoctorSurvey">
         <div class="doctor-welcome">
           <h2>Welcome, Respected Doctor!</h2>
-          <p>Dear <strong id="surveyDocWelcomeName">Doctor</strong>, please share your valued clinical opinion on the following 2 questions:</p>
+          <p>Dear <strong id="surveyDocWelcomeName">Doctor</strong>, please share your valued clinical opinion on the following 5 clinical questions:</p>
         </div>
 
-        <!-- Question 1 -->
-        <div class="question-card" id="qCard1">
-          <div class="q-number-badge">Question 1 of 2</div>
-          <div class="q-title" id="q1TitleEn">Loading question 1...</div>
-
-          <div class="options-list" id="q1OptionsContainer">
-            <!-- Options dynamically rendered (Clean text without icons) -->
-          </div>
-        </div>
-
-        <!-- Question 2 -->
-        <div class="question-card" id="qCard2">
-          <div class="q-number-badge">Question 2 of 2</div>
-          <div class="q-title" id="q2TitleEn">Loading question 2...</div>
-
-          <div class="options-list" id="q2OptionsContainer">
-            <!-- Options dynamically rendered (Clean text without icons) -->
-          </div>
+        <!-- Dynamic Questions Container (Q1 to Q5) -->
+        <div id="surveyQuestionsContainer">
+          <!-- Dynamically rendered via renderQuestions() -->
         </div>
 
         <button class="btn btn-accent" id="btnSubmitSurvey" style="margin-top: 8px;">
@@ -1354,13 +1339,16 @@ def build():
                     <th>#</th>
                     <th>Doctor Name</th>
                     <th>RPL ID</th>
-                    <th>Trimester (Q1)</th>
-                    <th>GERD Symptom (Q2)</th>
+                    <th>Q1 (Trimester)</th>
+                    <th>Q2 (Symptom)</th>
+                    <th>Q3 (Lifestyle)</th>
+                    <th>Q4 (1st Choice)</th>
+                    <th>Q5 (Preferred PPI)</th>
                     <th>Date & Time</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyMioDocs">
-                  <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">No doctor surveys recorded yet in this territory</td></tr>
+                  <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 16px;">No doctor surveys recorded yet in this territory</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1433,8 +1421,11 @@ def build():
                     <th>RPL ID</th>
                     <th>Territory</th>
                     <th>MIO Name</th>
-                    <th>Trimester (Q1)</th>
-                    <th>Symptom (Q2)</th>
+                    <th>Q1</th>
+                    <th>Q2</th>
+                    <th>Q3</th>
+                    <th>Q4</th>
+                    <th>Q5</th>
                     <th>Time</th>
                   </tr>
                 </thead>
@@ -1507,8 +1498,11 @@ def build():
                     <th>Region</th>
                     <th>Territory</th>
                     <th>MIO Name</th>
-                    <th>Trimester (Q1)</th>
-                    <th>Symptom (Q2)</th>
+                    <th>Q1</th>
+                    <th>Q2</th>
+                    <th>Q3</th>
+                    <th>Q4</th>
+                    <th>Q5</th>
                     <th>Time</th>
                   </tr>
                 </thead>
@@ -1562,21 +1556,8 @@ def build():
             </div>
           </div>
 
-          <!-- Question 1 Live Chart -->
-          <div class="card" style="padding: 14px;">
-            <h4 style="font-size: 13px; margin-bottom: 8px; color: var(--primary-dark);">📊 Question 1 Response Distribution</h4>
-            <div class="analytics-group" id="q1AnalyticsContainer">
-              <!-- Rendered via JS -->
-            </div>
-          </div>
-
-          <!-- Question 2 Live Chart -->
-          <div class="card" style="padding: 14px;">
-            <h4 style="font-size: 13px; margin-bottom: 8px; color: var(--primary-dark);">📊 Question 2 Response Distribution</h4>
-            <div class="analytics-group" id="q2AnalyticsContainer">
-              <!-- Rendered via JS -->
-            </div>
-          </div>
+          <!-- Question Response Distributions (Q1 to Q5 Live Charts) -->
+          <div id="adminQuestionsAnalyticsWrapper"></div>
 
           <!-- TERRITORY SUBMISSION EXPLORER (ADMIN) -->
           <div class="card" style="padding: 16px; background: #ffffff; border: 1.5px solid var(--border);">
@@ -1641,13 +1622,16 @@ def build():
                     <th>RPL ID</th>
                     <th>Territory</th>
                     <th>MIO Name</th>
-                    <th>Trimester (Q1)</th>
-                    <th>Symptom (Q2)</th>
+                    <th>Q1 (Trimester)</th>
+                    <th>Q2 (Symptom)</th>
+                    <th>Q3 (Lifestyle)</th>
+                    <th>Q4 (1st Choice)</th>
+                    <th>Q5 (Preferred PPI)</th>
                     <th>Date & Time</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyAdminDocs">
-                  <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 14px;">Loading survey submissions...</td></tr>
+                  <tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 14px;">Loading survey submissions...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1691,27 +1675,8 @@ def build():
               <button class="badge badge-primary" id="btnResetDefaultQuestions" style="border: none; cursor: pointer; padding: 4px 10px;">Reset to Default</button>
             </div>
 
-            <!-- Question 1 Editor -->
-            <div style="background: white; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 12px;">
-              <div class="form-group" style="margin-bottom: 10px;">
-                <label class="form-label" style="font-size: 12px; font-weight: 700; color: var(--primary-dark);">Question 1 Title</label>
-                <textarea id="editQ1En" class="form-control" rows="2" style="font-size: 13px;"></textarea>
-              </div>
-              <label class="form-label" style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Question 1 Answer Choices</label>
-              <div id="q1AdminOptionsContainer"></div>
-              <button type="button" class="btn-opt-add" id="btnAddQ1Option">+ Add Option to Q1</button>
-            </div>
-
-            <!-- Question 2 Editor -->
-            <div style="background: white; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 14px;">
-              <div class="form-group" style="margin-bottom: 10px;">
-                <label class="form-label" style="font-size: 12px; font-weight: 700; color: var(--primary-dark);">Question 2 Title</label>
-                <textarea id="editQ2En" class="form-control" rows="2" style="font-size: 13px;"></textarea>
-              </div>
-              <label class="form-label" style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Question 2 Answer Choices</label>
-              <div id="q2AdminOptionsContainer"></div>
-              <button type="button" class="btn-opt-add" id="btnAddQ2Option">+ Add Option to Q2</button>
-            </div>
+            <!-- Dynamic Question Cards Editor Wrapper (Q1 to Q5) -->
+            <div id="adminQuestionsEditorWrapper"></div>
 
             <button class="btn btn-primary" id="btnSaveQuestions" style="font-size: 14px; padding: 12px;">Save Questions & Answers 💾</button>
           </div>
@@ -1741,15 +1706,19 @@ def build():
     // App State
     let currentMio = null;
     let currentDoctor = null;
+    let selectedAnswers = {{}};
     let selectedQ1 = null;
     let selectedQ2 = null;
+    let selectedQ3 = null;
+    let selectedQ4 = null;
+    let selectedQ5 = null;
     let activeQuestions = null;
     let isAdminLoggedIn = false;
 
     // Local Storage Keys
     const LS_SURVEYS = "EXIUM_GYNE_SURVEYS_2026";
     const LS_MIO = "EXIUM_ACTIVE_MIO_SESSION";
-    const LS_QUESTIONS = "EXIUM_SURVEY_QUESTIONS_CONFIG_V3";
+    const LS_QUESTIONS = "EXIUM_SURVEY_QUESTIONS_CONFIG_V5";
     const LS_CLOUD_URL = "EXIUM_GYNE_CLOUD_URL_2026";
     const DEFAULT_CLOUD_URL = "https://script.google.com/macros/s/AKfycbyNC2sDd7cN0286cA51r8vUxRrsxePn51wnjRsK0HQcsBEqa1EQKmMNTeE_Eeia5YNigA/exec";
     let cloudApiUrl = localStorage.getItem(LS_CLOUD_URL) || DEFAULT_CLOUD_URL;
@@ -1828,12 +1797,16 @@ def build():
       initApp();
     }}
 
-    // 1. Load Questions Config (LocalStorage or Default)
+    // 1. Load Questions Config (LocalStorage or Default with 5 Questions Auto-Sync)
     function loadQuestionsConfig() {{
       const saved = localStorage.getItem(LS_QUESTIONS);
       if (saved) {{
         try {{
           activeQuestions = JSON.parse(saved);
+          if (!activeQuestions.questions || activeQuestions.questions.length < DEFAULT_QUESTIONS.questions.length) {{
+            activeQuestions = JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
+            localStorage.setItem(LS_QUESTIONS, JSON.stringify(activeQuestions));
+          }}
         }} catch(e) {{
           activeQuestions = JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
         }}
@@ -2080,75 +2053,80 @@ def build():
       }}
     }}
 
-    // Render Questions in Doctor View (CLEAN TEXT - NO ICONS)
+    // Render Questions in Doctor View (Dynamic 5 questions)
     function renderQuestions() {{
-      const q1 = activeQuestions.questions[0];
-      const q2 = activeQuestions.questions[1];
+      const container = document.getElementById("surveyQuestionsContainer");
+      if (!container) return;
+      container.innerHTML = "";
 
-      document.getElementById("q1TitleEn").textContent = q1.title_en;
-      document.getElementById("q2TitleEn").textContent = q2.title_en;
+      const totalQ = activeQuestions.questions.length;
 
-      const q1Container = document.getElementById("q1OptionsContainer");
-      const q2Container = document.getElementById("q2OptionsContainer");
-      q1Container.innerHTML = "";
-      q2Container.innerHTML = "";
+      activeQuestions.questions.forEach((q, idx) => {{
+        const qNum = idx + 1;
+        const qId = q.id || ("q" + qNum);
+        const card = document.createElement("div");
+        card.className = "question-card";
+        card.id = `qCard${{qNum}}`;
 
-      // Options Q1 - Clean text without icons
-      q1.options.forEach(opt => {{
-        const item = document.createElement("div");
-        item.className = "option-item" + (selectedQ1 === opt.code ? " selected" : "");
-        item.setAttribute("tabindex", "0");
-        item.innerHTML = `
-          <div class="option-radio"></div>
-          <div class="option-content">
-            <div class="option-text-en">${{opt.text_en}}</div>
-          </div>
+        card.innerHTML = `
+          <div class="q-number-badge">Question ${{qNum}} of ${{totalQ}}</div>
+          <div class="q-title">${{escapeHtml(q.title_en)}}</div>
+          <div class="options-list" id="q${{qNum}}OptionsContainer"></div>
         `;
-        const selectOpt1 = () => {{
-          selectedQ1 = opt.code;
-          q1Container.querySelectorAll(".option-item").forEach(el => el.classList.remove("selected"));
-          item.classList.add("selected");
-          if (!selectedQ2) {{
-            const q2Card = document.getElementById("qCard2");
-            if (q2Card) {{
-              q2Card.scrollIntoView({{ behavior: "smooth", block: "center" }});
+
+        const optionsContainer = card.querySelector(`#q${{qNum}}OptionsContainer`);
+
+        q.options.forEach(opt => {{
+          const item = document.createElement("div");
+          const isSelected = selectedAnswers[qId] === opt.code;
+          item.className = "option-item" + (isSelected ? " selected" : "");
+          item.setAttribute("tabindex", "0");
+          item.innerHTML = `
+            <div class="option-radio"></div>
+            <div class="option-content">
+              <div class="option-text-en">${{escapeHtml(opt.text_en)}}</div>
+            </div>
+          `;
+
+          const selectOption = () => {{
+            selectedAnswers[qId] = opt.code;
+            if (qNum === 1) selectedQ1 = opt.code;
+            if (qNum === 2) selectedQ2 = opt.code;
+            if (qNum === 3) selectedQ3 = opt.code;
+            if (qNum === 4) selectedQ4 = opt.code;
+            if (qNum === 5) selectedQ5 = opt.code;
+
+            optionsContainer.querySelectorAll(".option-item").forEach(el => el.classList.remove("selected"));
+            item.classList.add("selected");
+
+            // Auto-scroll to next question
+            const nextQNum = qNum + 1;
+            const nextQId = "q" + nextQNum;
+            if (nextQNum <= totalQ && !selectedAnswers[nextQId]) {{
+              const nextCard = document.getElementById(`qCard${{nextQNum}}`);
+              if (nextCard) {{
+                nextCard.scrollIntoView({{ behavior: "smooth", block: "center" }});
+              }}
+            }} else if (qNum === totalQ) {{
+              const submitBtn = document.getElementById("btnSubmitSurvey");
+              if (submitBtn) {{
+                submitBtn.scrollIntoView({{ behavior: "smooth", block: "center" }});
+              }}
             }}
-          }}
-        }};
-        item.addEventListener("click", selectOpt1);
-        item.addEventListener("keydown", (ev) => {{
-          if (ev.key === "Enter" || ev.key === " ") {{
-            ev.preventDefault();
-            selectOpt1();
-          }}
-        }});
-        q1Container.appendChild(item);
-      }});
+          }};
 
-      // Options Q2 - Clean text without icons
-      q2.options.forEach(opt => {{
-        const item = document.createElement("div");
-        item.className = "option-item" + (selectedQ2 === opt.code ? " selected" : "");
-        item.setAttribute("tabindex", "0");
-        item.innerHTML = `
-          <div class="option-radio"></div>
-          <div class="option-content">
-            <div class="option-text-en">${{opt.text_en}}</div>
-          </div>
-        `;
-        const selectOpt2 = () => {{
-          selectedQ2 = opt.code;
-          q2Container.querySelectorAll(".option-item").forEach(el => el.classList.remove("selected"));
-          item.classList.add("selected");
-        }};
-        item.addEventListener("click", selectOpt2);
-        item.addEventListener("keydown", (ev) => {{
-          if (ev.key === "Enter" || ev.key === " ") {{
-            ev.preventDefault();
-            selectOpt2();
-          }}
+          item.addEventListener("click", selectOption);
+          item.addEventListener("keydown", (ev) => {{
+            if (ev.key === "Enter" || ev.key === " ") {{
+              ev.preventDefault();
+              selectOption();
+            }}
+          }});
+
+          optionsContainer.appendChild(item);
         }});
-        q2Container.appendChild(item);
+
+        container.appendChild(card);
       }});
     }}
 
@@ -2228,8 +2206,12 @@ def build():
         }};
 
         document.getElementById("surveyDocWelcomeName").textContent = currentDoctor.name;
+        selectedAnswers = {{}};
         selectedQ1 = null;
         selectedQ2 = null;
+        selectedQ3 = null;
+        selectedQ4 = null;
+        selectedQ5 = null;
         renderQuestions();
 
         // Switch to Doctor Screen
@@ -2237,17 +2219,17 @@ def build():
         showToast("📱 Doctor View Activated!");
       }});
 
-      // Doctor Submits Questionnaire
+      // Doctor Submits Questionnaire (Validates All 5 Questions)
       document.getElementById("btnSubmitSurvey").addEventListener("click", () => {{
-        if (!selectedQ1) {{
-          showToast("⚠️ Please answer Question 1 before submitting.");
-          document.getElementById("qCard1").scrollIntoView({{ behavior: "smooth" }});
-          return;
-        }}
-        if (!selectedQ2) {{
-          showToast("⚠️ Please answer Question 2 before submitting.");
-          document.getElementById("qCard2").scrollIntoView({{ behavior: "smooth" }});
-          return;
+        for (let i = 0; i < activeQuestions.questions.length; i++) {{
+          const q = activeQuestions.questions[i];
+          const qId = q.id || ("q" + (i + 1));
+          if (!selectedAnswers[qId]) {{
+            showToast(`⚠️ Please answer Question ${{i + 1}} before submitting.`);
+            const card = document.getElementById(`qCard${{i + 1}}`);
+            if (card) card.scrollIntoView({{ behavior: "smooth", block: "center" }});
+            return;
+          }}
         }}
 
         // Save Response
@@ -2261,8 +2243,12 @@ def build():
         document.getElementById("docName").value = "";
         document.getElementById("docRplId").value = "";
         currentDoctor = null;
+        selectedAnswers = {{}};
         selectedQ1 = null;
         selectedQ2 = null;
+        selectedQ3 = null;
+        selectedQ4 = null;
+        selectedQ5 = null;
 
         showScreen("screenDoctorInfo");
         showToast("Ready for next doctor entry 📝");
@@ -2388,44 +2374,33 @@ def build():
         }});
       }}
 
-      // Add option buttons in Admin
-      document.getElementById("btnAddQ1Option").addEventListener("click", () => {{
-        addOptionRow("q1AdminOptionsContainer");
-      }});
-      document.getElementById("btnAddQ2Option").addEventListener("click", () => {{
-        addOptionRow("q2AdminOptionsContainer");
-      }});
+      // Add option buttons handled dynamically in loadQuestionEditor()
 
-      // Save Edited Questions & Answers
+      // Save Edited Questions & Answers (Dynamic for all questions)
       document.getElementById("btnSaveQuestions").addEventListener("click", () => {{
-        const q1Title = document.getElementById("editQ1En").value.trim();
-        const q2Title = document.getElementById("editQ2En").value.trim();
-
-        if (!q1Title || !q2Title) {{
-          showToast("⚠️ Both Question titles are required.");
-          return;
+        const updated = [];
+        for (let idx = 0; idx < activeQuestions.questions.length; idx++) {{
+          const titleEl = document.getElementById(`editQTitle_${{idx}}`);
+          const title = titleEl ? titleEl.value.trim() : "";
+          if (!title) {{
+            showToast(`⚠️ Title for Question ${{idx + 1}} is required.`);
+            return;
+          }}
+          const opts = collectOptionsFromContainer(`q${{idx}}AdminOptionsContainer`);
+          if (opts.length < 2) {{
+            showToast(`⚠️ Question ${{idx + 1}} must have at least 2 options.`);
+            return;
+          }}
+          updated.push({{
+            id: activeQuestions.questions[idx].id || (`q${{idx + 1}}`),
+            number: idx + 1,
+            title_en: title,
+            required: true,
+            options: opts
+          }});
         }}
 
-        // Collect Q1 options
-        const q1Opts = collectOptionsFromContainer("q1AdminOptionsContainer");
-        if (q1Opts.length < 2) {{
-          showToast("⚠️ Question 1 must have at least 2 options.");
-          return;
-        }}
-
-        // Collect Q2 options
-        const q2Opts = collectOptionsFromContainer("q2AdminOptionsContainer");
-        if (q2Opts.length < 2) {{
-          showToast("⚠️ Question 2 must have at least 2 options.");
-          return;
-        }}
-
-        activeQuestions.questions[0].title_en = q1Title;
-        activeQuestions.questions[0].options = q1Opts;
-
-        activeQuestions.questions[1].title_en = q2Title;
-        activeQuestions.questions[1].options = q2Opts;
-
+        activeQuestions.questions = updated;
         localStorage.setItem(LS_QUESTIONS, JSON.stringify(activeQuestions));
         renderQuestions();
         refreshAdminStats();
@@ -2605,16 +2580,38 @@ def build():
       }});
     }}
 
-    // Load Question and Answer Options Editor in Admin
+    // Load Question and Answer Options Editor in Admin (Dynamic for Q1 to Q5)
     function loadQuestionEditor() {{
-      const q1 = activeQuestions.questions[0];
-      const q2 = activeQuestions.questions[1];
+      const wrapper = document.getElementById("adminQuestionsEditorWrapper");
+      if (!wrapper) return;
+      wrapper.innerHTML = "";
 
-      document.getElementById("editQ1En").value = q1.title_en;
-      document.getElementById("editQ2En").value = q2.title_en;
+      activeQuestions.questions.forEach((q, idx) => {{
+        const qNum = idx + 1;
+        const box = document.createElement("div");
+        box.style.background = "white";
+        box.style.border = "1px solid var(--border)";
+        box.style.borderRadius = "10px";
+        box.style.padding = "12px";
+        box.style.marginBottom = "12px";
 
-      renderAdminOptions("q1AdminOptionsContainer", q1.options);
-      renderAdminOptions("q2AdminOptionsContainer", q2.options);
+        box.innerHTML = `
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; color: var(--primary-dark);">Question ${{qNum}} Title</label>
+            <textarea id="editQTitle_${{idx}}" class="form-control" rows="2" style="font-size: 13px;">${{escapeHtml(q.title_en)}}</textarea>
+          </div>
+          <label class="form-label" style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Question ${{qNum}} Answer Choices</label>
+          <div id="q${{idx}}AdminOptionsContainer"></div>
+          <button type="button" class="btn-opt-add" id="btnAddQ${{idx}}Option">+ Add Option to Q${{qNum}}</button>
+        `;
+
+        wrapper.appendChild(box);
+        renderAdminOptions(`q${{idx}}AdminOptionsContainer`, q.options);
+
+        box.querySelector(`#btnAddQ${{idx}}Option`).addEventListener("click", () => {{
+          addOptionRow(`q${{idx}}AdminOptionsContainer`);
+        }});
+      }});
     }}
 
     function renderAdminOptions(containerId, options) {{
@@ -2694,14 +2691,21 @@ def build():
       return String(text || "").replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }}
 
-    // Save Survey Response to LocalStorage
+    // Save Survey Response to LocalStorage (5 Questions)
     function saveSurveyResponse() {{
       const surveys = JSON.parse(localStorage.getItem(LS_SURVEYS) || "[]");
 
-      const q1Config = activeQuestions.questions[0];
-      const q2Config = activeQuestions.questions[1];
-      const q1SelectedObj = q1Config.options.find(o => o.code === selectedQ1);
-      const q2SelectedObj = q2Config.options.find(o => o.code === selectedQ2);
+      function getOptText(qIdx, code) {{
+        if (!code || !activeQuestions.questions[qIdx]) return "";
+        const opt = activeQuestions.questions[qIdx].options.find(o => o.code === code);
+        return opt ? opt.text_en : "";
+      }}
+
+      const q1Code = selectedAnswers["q1"] || selectedQ1 || "";
+      const q2Code = selectedAnswers["q2"] || selectedQ2 || "";
+      const q3Code = selectedAnswers["q3"] || selectedQ3 || "";
+      const q4Code = selectedAnswers["q4"] || selectedQ4 || "";
+      const q5Code = selectedAnswers["q5"] || selectedQ5 || "";
 
       const record = {{
         id: "SURV_" + Date.now() + "_" + Math.floor(Math.random()*1000),
@@ -2718,10 +2722,16 @@ def build():
         mio_name: currentMio ? currentMio.mio_name : "",
         doctor_name: currentDoctor ? currentDoctor.name : "",
         doctor_rpl_id: currentDoctor ? currentDoctor.rpl_id : "",
-        q1_code: selectedQ1,
-        q1_answer_en: q1SelectedObj ? q1SelectedObj.text_en : "",
-        q2_code: selectedQ2,
-        q2_answer_en: q2SelectedObj ? q2SelectedObj.text_en : "",
+        q1_code: q1Code,
+        q1_answer_en: getOptText(0, q1Code),
+        q2_code: q2Code,
+        q2_answer_en: getOptText(1, q2Code),
+        q3_code: q3Code,
+        q3_answer_en: getOptText(2, q3Code),
+        q4_code: q4Code,
+        q4_answer_en: getOptText(3, q4Code),
+        q5_code: q5Code,
+        q5_answer_en: getOptText(4, q5Code),
         synced: false,
         _is_offline_pending: !navigator.onLine,
         _created_timestamp: Date.now()
@@ -3011,9 +3021,12 @@ def build():
           <td>${{idx + 1}}</td>
           <td><strong>${{escapeHtml(s.doctor_name)}}</strong></td>
           <td><code>${{escapeHtml(s.doctor_rpl_id)}}</code></td>
-          <td>${{escapeHtml(s.q1_answer_en || s.q1_code || "-")}}</td>
-          <td>${{escapeHtml(s.q2_answer_en || s.q2_code || "-")}}</td>
-          <td>${{escapeHtml(s.formatted_time || s.timestamp || "-")}}</td>
+          <td><span class="badge" style="background:#e0f2fe; color:#0369a1;">${{escapeHtml(s.q1_code ? (s.q1_code + '. ' + (s.q1_answer_en || '')) : '-')}}</span></td>
+          <td><span class="badge" style="background:#fef3c7; color:#92400e;">${{escapeHtml(s.q2_code ? (s.q2_code + '. ' + (s.q2_answer_en || '')) : '-')}}</span></td>
+          <td><span class="badge" style="background:#f1f5f9; color:#334155;">${{escapeHtml(s.q3_code ? (s.q3_code + '. ' + (s.q3_answer_en || '')) : '-')}}</span></td>
+          <td><span class="badge" style="background:#ecfdf5; color:#065f46;">${{escapeHtml(s.q4_code ? (s.q4_code + '. ' + (s.q4_answer_en || '')) : '-')}}</span></td>
+          <td><span class="badge" style="background:#fdf2f8; color:#9d174d;">${{escapeHtml(s.q5_code ? (s.q5_code + '. ' + (s.q5_answer_en || '')) : '-')}}</span></td>
+          <td><small>${{escapeHtml(s.formatted_time || s.timestamp || "-")}}</small></td>
         `;
         tbody.appendChild(tr);
       }});
@@ -3071,9 +3084,12 @@ def build():
             <td><code>${{escapeHtml(s.doctor_rpl_id)}}</code></td>
             <td>${{escapeHtml(s.territory)}}</td>
             <td>${{escapeHtml(s.mio_name)}}</td>
-            <td>${{escapeHtml(s.q1_answer_en || s.q1_code || "-")}}</td>
-            <td>${{escapeHtml(s.q2_answer_en || s.q2_code || "-")}}</td>
-            <td>${{escapeHtml(s.formatted_time || s.timestamp || "-")}}</td>
+            <td>${{escapeHtml(s.q1_code || "-")}}</td>
+            <td>${{escapeHtml(s.q2_code || "-")}}</td>
+            <td>${{escapeHtml(s.q3_code || "-")}}</td>
+            <td>${{escapeHtml(s.q4_code || "-")}}</td>
+            <td>${{escapeHtml(s.q5_code || "-")}}</td>
+            <td><small>${{escapeHtml(s.formatted_time || s.timestamp || "-")}}</small></td>
           `;
           tbodyDocs.appendChild(tr);
         }});
@@ -3138,9 +3154,12 @@ def build():
             <td>${{escapeHtml(s.region)}}</td>
             <td>${{escapeHtml(s.territory)}}</td>
             <td>${{escapeHtml(s.mio_name)}}</td>
-            <td>${{escapeHtml(s.q1_answer_en || s.q1_code || "-")}}</td>
-            <td>${{escapeHtml(s.q2_answer_en || s.q2_code || "-")}}</td>
-            <td>${{escapeHtml(s.formatted_time || s.timestamp || "-")}}</td>
+            <td>${{escapeHtml(s.q1_code || "-")}}</td>
+            <td>${{escapeHtml(s.q2_code || "-")}}</td>
+            <td>${{escapeHtml(s.q3_code || "-")}}</td>
+            <td>${{escapeHtml(s.q4_code || "-")}}</td>
+            <td>${{escapeHtml(s.q5_code || "-")}}</td>
+            <td><small>${{escapeHtml(s.formatted_time || s.timestamp || "-")}}</small></td>
           `;
           tbodyDocs.appendChild(tr);
         }});
@@ -3171,7 +3190,19 @@ def build():
         "Q1 Code": s.q1_code,
         "Q1 Answer": s.q1_answer_en,
         "Q2 Code": s.q2_code,
-        "Q2 Answer": s.q2_answer_en
+        "Q2 Answer": s.q2_answer_en,
+        "Q3 Code": s.q3_code,
+        "Q3 Answer": s.q3_answer_en,
+        "Q4 Code": s.q4_code,
+        "Q4 Answer": s.q4_answer_en,
+        "Q5 Code": s.q5_code,
+        "Q5 Answer": s.q5_answer_en,
+        "Q3 Code": s.q3_code,
+        "Q3 Answer": s.q3_answer_en,
+        "Q4 Code": s.q4_code,
+        "Q4 Answer": s.q4_answer_en,
+        "Q5 Code": s.q5_code,
+        "Q5 Answer": s.q5_answer_en
       }}));
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(rows);
@@ -3204,7 +3235,10 @@ def build():
         "Doctor Name": s.doctor_name,
         "Doctor RPL ID": s.doctor_rpl_id,
         "Q1 Answer": s.q1_answer_en,
-        "Q2 Answer": s.q2_answer_en
+        "Q2 Answer": s.q2_answer_en,
+        "Q3 Answer": s.q3_answer_en,
+        "Q4 Answer": s.q4_answer_en,
+        "Q5 Answer": s.q5_answer_en
       }}));
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(rows);
@@ -3236,7 +3270,10 @@ def build():
         "Doctor Name": s.doctor_name,
         "Doctor RPL ID": s.doctor_rpl_id,
         "Q1 Answer": s.q1_answer_en,
-        "Q2 Answer": s.q2_answer_en
+        "Q2 Answer": s.q2_answer_en,
+        "Q3 Answer": s.q3_answer_en,
+        "Q4 Answer": s.q4_answer_en,
+        "Q5 Answer": s.q5_answer_en
       }}));
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(rows);
@@ -3256,57 +3293,48 @@ def build():
       document.getElementById("statSyncCount").textContent = surveys.filter(s => s.synced).length;
       document.getElementById("statPendingCount").textContent = surveys.filter(s => !s.synced).length;
 
-      // Question 1 Breakdown
-      const q1Counts = {{}};
-      const q1Config = activeQuestions.questions[0];
-      q1Config.options.forEach(o => q1Counts[o.code] = 0);
-      surveys.forEach(s => {{
-        if (q1Counts[s.q1_code] !== undefined) q1Counts[s.q1_code]++;
-      }});
+      // Dynamic Question Analytics Breakdown (Q1 to Q5)
+      const analyticsWrapper = document.getElementById("adminQuestionsAnalyticsWrapper");
+      if (analyticsWrapper) {{
+        analyticsWrapper.innerHTML = "";
+        activeQuestions.questions.forEach((q, idx) => {{
+          const qNum = idx + 1;
+          const qKey = "q" + qNum;
+          const counts = {{}};
+          q.options.forEach(o => counts[o.code] = 0);
+          surveys.forEach(s => {{
+            const val = s[qKey + "_code"];
+            if (counts[val] !== undefined) counts[val]++;
+          }});
 
-      const q1Container = document.getElementById("q1AnalyticsContainer");
-      q1Container.innerHTML = "";
-      q1Config.options.forEach(opt => {{
-        const count = q1Counts[opt.code] || 0;
-        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-        q1Container.innerHTML += `
-          <div class="chart-bar-item">
-            <div class="chart-bar-header">
-              <span>${{opt.code}}. ${{opt.text_en}}</span>
-              <span>${{count}} (${{pct}}%)</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill" style="width: ${{pct}}%;"></div>
-            </div>
-          </div>
-        `;
-      }});
+          let optionsHtml = "";
+          q.options.forEach(opt => {{
+            const count = counts[opt.code] || 0;
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            optionsHtml += `
+              <div class="chart-bar-item">
+                <div class="chart-bar-header">
+                  <span>${{opt.code}}. ${{escapeHtml(opt.text_en)}}</span>
+                  <span>${{count}} (${{pct}}%)</span>
+                </div>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width: ${{pct}}%;"></div>
+                </div>
+              </div>
+            `;
+          }});
 
-      // Question 2 Breakdown
-      const q2Counts = {{}};
-      const q2Config = activeQuestions.questions[1];
-      q2Config.options.forEach(o => q2Counts[o.code] = 0);
-      surveys.forEach(s => {{
-        if (q2Counts[s.q2_code] !== undefined) q2Counts[s.q2_code]++;
-      }});
-
-      const q2Container = document.getElementById("q2AnalyticsContainer");
-      q2Container.innerHTML = "";
-      q2Config.options.forEach(opt => {{
-        const count = q2Counts[opt.code] || 0;
-        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-        q2Container.innerHTML += `
-          <div class="chart-bar-item">
-            <div class="chart-bar-header">
-              <span>${{opt.code}}. ${{opt.text_en}}</span>
-              <span>${{count}} (${{pct}}%)</span>
+          analyticsWrapper.innerHTML += `
+            <div class="card" style="padding: 14px; margin-bottom: 12px;">
+              <h4 style="font-size: 13px; margin-bottom: 4px; color: var(--primary-dark);">📊 Question ${{qNum}} Distribution</h4>
+              <p style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 10px;">${{escapeHtml(q.title_en)}}</p>
+              <div class="analytics-group">
+                ${{optionsHtml}}
+              </div>
             </div>
-            <div class="bar-track">
-              <div class="bar-fill" style="width: ${{pct}}%;"></div>
-            </div>
-          </div>
-        `;
-      }});
+          `;
+        }});
+      }}
 
       renderAdminSurveys();
     }}
@@ -3392,6 +3420,9 @@ def build():
           const zone = (s.zone || "").toLowerCase();
           const q1Ans = (s.q1_answer_en || s.q1_code || "").toLowerCase();
           const q2Ans = (s.q2_answer_en || s.q2_code || "").toLowerCase();
+          const q3Ans = (s.q3_answer_en || s.q3_code || "").toLowerCase();
+          const q4Ans = (s.q4_answer_en || s.q4_code || "").toLowerCase();
+          const q5Ans = (s.q5_answer_en || s.q5_code || "").toLowerCase();
 
           const matches = docName.includes(searchTerm) ||
                           rplId.includes(searchTerm) ||
@@ -3402,7 +3433,10 @@ def build():
                           region.includes(searchTerm) ||
                           zone.includes(searchTerm) ||
                           q1Ans.includes(searchTerm) ||
-                          q2Ans.includes(searchTerm);
+                          q2Ans.includes(searchTerm) ||
+                          q3Ans.includes(searchTerm) ||
+                          q4Ans.includes(searchTerm) ||
+                          q5Ans.includes(searchTerm);
           if (!matches) return false;
         }}
         return true;
@@ -3499,13 +3533,13 @@ def build():
       tbody.innerHTML = "";
       if (filtered.length === 0) {{
         if (activeTerrObj) {{
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--danger); font-weight: 600; padding: 18px;">⚠️ No doctor surveys submitted yet by territory: ${{escapeHtml(activeTerrObj.terr_name)}} (${{escapeHtml(activeTerrObj.terr_code)}})</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--danger); font-weight: 600; padding: 18px;">⚠️ No doctor surveys submitted yet by territory: ${{escapeHtml(activeTerrObj.terr_name)}} (${{escapeHtml(activeTerrObj.terr_code)}})</td></tr>`;
         }} else if (searchTerm) {{
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--danger); font-weight: 600; padding: 18px;">⚠️ No matching survey records found for "${{escapeHtml(searchTerm)}}"</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--danger); font-weight: 600; padding: 18px;">⚠️ No matching survey records found for "${{escapeHtml(searchTerm)}}"</td></tr>`;
         }} else if (selectedZone || selectedReg) {{
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 18px;">No surveys found matching the selected Zone / Region filter.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 18px;">No surveys found matching the selected Zone / Region filter.</td></tr>`;
         }} else {{
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 18px;">No doctor surveys submitted yet nationwide.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 18px;">No doctor surveys submitted yet nationwide.</td></tr>`;
         }}
         return;
       }}
@@ -3518,8 +3552,11 @@ def build():
           <td><code style="font-weight: 600;">${{escapeHtml(s.doctor_rpl_id || "-")}}</code></td>
           <td>${{escapeHtml(s.territory || s.sap_territory_code || "-")}} <small style="color:var(--text-muted);">(${{escapeHtml(s.sap_territory_code || "-")}})</small></td>
           <td>${{escapeHtml(s.mio_name || "-")}}</td>
-          <td><span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 11px;">${{escapeHtml(s.q1_answer_en || s.q1_code || "-")}}</span></td>
-          <td><span class="badge" style="background: #fef3c7; color: #92400e; font-size: 11px;">${{escapeHtml(s.q2_answer_en || s.q2_code || "-")}}</span></td>
+          <td><span class="badge" title="${{escapeHtml(s.q1_answer_en || "")}}" style="background: #e0f2fe; color: #0369a1; font-size: 11px;">${{escapeHtml(s.q1_code ? (s.q1_code + '. ' + (s.q1_answer_en || '')) : '-')}}</span></td>
+          <td><span class="badge" title="${{escapeHtml(s.q2_answer_en || "")}}" style="background: #fef3c7; color: #92400e; font-size: 11px;">${{escapeHtml(s.q2_code ? (s.q2_code + '. ' + (s.q2_answer_en || '')) : '-')}}</span></td>
+          <td><span class="badge" title="${{escapeHtml(s.q3_answer_en || "")}}" style="background: #f1f5f9; color: #334155; font-size: 11px;">${{escapeHtml(s.q3_code ? (s.q3_code + '. ' + (s.q3_answer_en || '')) : '-')}}</span></td>
+          <td><span class="badge" title="${{escapeHtml(s.q4_answer_en || "")}}" style="background: #ecfdf5; color: #065f46; font-size: 11px;">${{escapeHtml(s.q4_code ? (s.q4_code + '. ' + (s.q4_answer_en || '')) : '-')}}</span></td>
+          <td><span class="badge" title="${{escapeHtml(s.q5_answer_en || "")}}" style="background: #fdf2f8; color: #9d174d; font-size: 11px;">${{escapeHtml(s.q5_code ? (s.q5_code + '. ' + (s.q5_answer_en || '')) : '-')}}</span></td>
           <td><small style="color: var(--text-muted);">${{escapeHtml(s.formatted_time || s.timestamp || "-")}}</small></td>
         `;
         tbody.appendChild(tr);
@@ -3637,7 +3674,19 @@ def build():
         "Q1 Code": s.q1_code,
         "Q1 Answer": s.q1_answer_en,
         "Q2 Code": s.q2_code,
-        "Q2 Answer": s.q2_answer_en
+        "Q2 Answer": s.q2_answer_en,
+        "Q3 Code": s.q3_code,
+        "Q3 Answer": s.q3_answer_en,
+        "Q4 Code": s.q4_code,
+        "Q4 Answer": s.q4_answer_en,
+        "Q5 Code": s.q5_code,
+        "Q5 Answer": s.q5_answer_en,
+        "Q3 Code": s.q3_code,
+        "Q3 Answer": s.q3_answer_en,
+        "Q4 Code": s.q4_code,
+        "Q4 Answer": s.q4_answer_en,
+        "Q5 Code": s.q5_code,
+        "Q5 Answer": s.q5_answer_en
       }}));
 
       const ws = XLSX.utils.json_to_sheet(rows);
@@ -3658,7 +3707,8 @@ def build():
       const headers = [
         "SL", "Timestamp", "Zone", "Region", "TerritoryCode", "TerritoryName",
         "SAPMIOCode", "MIOName", "DoctorName", "DoctorRPLID",
-        "Q1Code", "Q1Answer", "Q2Code", "Q2Answer"
+        "Q1Code", "Q1Answer", "Q2Code", "Q2Answer",
+        "Q3Code", "Q3Answer", "Q4Code", "Q4Answer", "Q5Code", "Q5Answer"
       ];
 
       const csvRows = [headers.join(",")];
@@ -3674,10 +3724,16 @@ def build():
           `"${{s.mio_name}}"`,
           `"${{s.doctor_name}}"`,
           `"${{s.doctor_rpl_id}}"`,
-          `"${{s.q1_code}}"`,
-          `"${{s.q1_answer_en}}"`,
-          `"${{s.q2_code}}"`,
-          `"${{s.q2_answer_en}}"`
+          `"${{s.q1_code || ''}}"`,
+          `"${{s.q1_answer_en || ''}}"`,
+          `"${{s.q2_code || ''}}"`,
+          `"${{s.q2_answer_en || ''}}"`,
+          `"${{s.q3_code || ''}}"`,
+          `"${{s.q3_answer_en || ''}}"`,
+          `"${{s.q4_code || ''}}"`,
+          `"${{s.q4_answer_en || ''}}"`,
+          `"${{s.q5_code || ''}}"`,
+          `"${{s.q5_answer_en || ''}}"`
         ];
         csvRows.push(row.join(","));
       }});
