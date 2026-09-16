@@ -34,6 +34,9 @@ def build():
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Exium MUPS — GERD and Pregnancy Survey</title>
   <link rel="icon" type="image/png" href="{logo_b64}">
   <!-- Fonts -->
@@ -809,7 +812,7 @@ def build():
       inset: 0;
       background: rgba(15, 23, 42, 0.6);
       backdrop-filter: blur(4px);
-      z-index: 100;
+      z-index: 9999;
       display: none;
       align-items: center;
       justify-content: center;
@@ -1052,7 +1055,7 @@ def build():
       align-items: center;
       gap: 8px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.25);
-      z-index: 200;
+      z-index: 10000;
       transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       opacity: 0;
       white-space: nowrap;
@@ -1090,8 +1093,8 @@ def build():
 
       <!-- Line 2: Actions Bar (Reports & Admin) -->
       <div class="header-actions-row">
-        <button class="btn-header-report" id="btnReportsOpen" title="Survey Submission Report">📊 Survey Submission Report</button>
-        <button class="btn-icon" id="btnAdminOpen" title="Central Admin">⚙️</button>
+        <button type="button" class="btn-header-report" id="btnReportsOpen" onclick="openReportsModal()" title="Survey Submission Report">📊 Survey Submission Report</button>
+        <button type="button" class="btn-icon" id="btnAdminOpen" onclick="openAdminModal()" title="Central Admin">⚙️</button>
       </div>
 
       <!-- Active Session Status Bar -->
@@ -1273,7 +1276,10 @@ def build():
         </div>
       </div>
 
-    </main>
+      <footer style="text-align: center; padding: 12px 10px 24px; font-size: 11px; color: rgba(255, 255, 255, 0.45); font-weight: 500;">
+      Exium MUPS Gyne Survey • Build v2.6
+    </footer>
+  </main>
 
     <!-- ============================================== -->
     <!-- MODAL: HIERARCHY REPORTS (MIO, RH, ZH)         -->
@@ -1284,7 +1290,7 @@ def build():
           <h3 style="font-size: 16px; font-weight: 700;">📊 Survey Submission Report</h3>
           <div style="display: flex; align-items: center; gap: 8px;">
             <button class="btn btn-outline" id="btnReportLiveRefresh" style="font-size: 11px; padding: 4px 8px; width: auto; border-color: var(--primary); color: var(--primary);" title="Pull latest survey responses from Google Sheet">🔄 Sync Live Data</button>
-            <button class="btn-icon" id="btnReportsClose" style="width: 28px; height: 28px;">✕</button>
+            <button type="button" class="btn-icon" id="btnReportsClose" onclick="closeReportsModal()" style="width: 28px; height: 28px;">✕</button>
           </div>
         </div>
 
@@ -1522,7 +1528,7 @@ def build():
       <div class="modal-card">
         <div class="modal-header">
           <h3 style="font-size: 16px; font-weight: 700;">⚙️ Central Survey Admin</h3>
-          <button class="btn-icon" id="btnAdminClose" style="width: 28px; height: 28px;">✕</button>
+          <button type="button" class="btn-icon" id="btnAdminClose" onclick="closeAdminModal()" style="width: 28px; height: 28px;">✕</button>
         </div>
 
         <!-- Admin Login Form (if not logged in) -->
@@ -1743,18 +1749,77 @@ def build():
     const DEFAULT_CLOUD_URL = "https://script.google.com/macros/s/AKfycbyNC2sDd7cN0286cA51r8vUxRrsxePn51wnjRsK0HQcsBEqa1EQKmMNTeE_Eeia5YNigA/exec";
     let cloudApiUrl = localStorage.getItem(LS_CLOUD_URL) || DEFAULT_CLOUD_URL;
 
-    // Initialize Application
-    document.addEventListener("DOMContentLoaded", () => {{
-      loadQuestionsConfig();
-      initHierarchy();
-      initReportHierarchy();
-      initAdminTerritoryExplorer();
-      checkExistingSession();
-      renderQuestions();
-      setupEventListeners();
-      updateMySurveyCountBadge();
-      initCloudSync();
-    }});
+    // Global Modal Controllers (Guaranteed execution on click / tap)
+    function openReportsModal() {{
+      const modal = document.getElementById("reportsModal");
+      if (modal) {{
+        modal.classList.add("active");
+        modal.style.display = "flex";
+        const tabMio = document.getElementById("tabBtnMio");
+        if (tabMio) tabMio.click();
+        const searchInput = document.getElementById("reportMioQuickSearch");
+        if (searchInput) {{
+          searchInput.value = "";
+          searchInput.classList.remove("is-invalid");
+        }}
+        const feedback = document.getElementById("reportMioSearchFeedback");
+        if (feedback) feedback.style.display = "none";
+
+        if (currentMio) {{
+          selectReportMioTerritory(currentMio.terr_code);
+        }} else {{
+          const sel = document.getElementById("reportMioTerrSelect");
+          if (sel) renderMioReport(sel.value);
+        }}
+      }}
+    }}
+
+    function closeReportsModal() {{
+      const modal = document.getElementById("reportsModal");
+      if (modal) {{
+        modal.classList.remove("active");
+        modal.style.display = "none";
+      }}
+    }}
+
+    function openAdminModal() {{
+      const modal = document.getElementById("adminModal");
+      if (modal) {{
+        modal.classList.add("active");
+        modal.style.display = "flex";
+        setTimeout(() => {{
+          const inp = document.getElementById("adminPassInput");
+          if (inp) inp.focus();
+        }}, 100);
+      }}
+    }}
+
+    function closeAdminModal() {{
+      const modal = document.getElementById("adminModal");
+      if (modal) {{
+        modal.classList.remove("active");
+        modal.style.display = "none";
+      }}
+    }}
+
+    // Bulletproof Initialize Application
+    function initApp() {{
+      try {{ setupEventListeners(); }} catch(e) {{ console.error("setupEventListeners:", e); }}
+      try {{ loadQuestionsConfig(); }} catch(e) {{ console.error("loadQuestionsConfig:", e); }}
+      try {{ initHierarchy(); }} catch(e) {{ console.error("initHierarchy:", e); }}
+      try {{ initReportHierarchy(); }} catch(e) {{ console.error("initReportHierarchy:", e); }}
+      try {{ initAdminTerritoryExplorer(); }} catch(e) {{ console.error("initAdminTerritoryExplorer:", e); }}
+      try {{ checkExistingSession(); }} catch(e) {{ console.error("checkExistingSession:", e); }}
+      try {{ renderQuestions(); }} catch(e) {{ console.error("renderQuestions:", e); }}
+      try {{ updateMySurveyCountBadge(); }} catch(e) {{ console.error("updateMySurveyCountBadge:", e); }}
+      try {{ initCloudSync(); }} catch(e) {{ console.error("initCloudSync:", e); }}
+    }}
+
+    if (document.readyState === "loading") {{
+      document.addEventListener("DOMContentLoaded", initApp);
+    }} else {{
+      initApp();
+    }}
 
     // 1. Load Questions Config (LocalStorage or Default)
     function loadQuestionsConfig() {{
