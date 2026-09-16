@@ -1678,7 +1678,7 @@
           <div style="display: flex; flex-direction: column; gap: 8px;">
             <button class="btn btn-primary" id="btnExportExcel">📥 Export Master Excel (.xlsx)</button>
             <button class="btn btn-outline" id="btnExportCSV">📥 Export CSV File</button>
-            <button class="btn btn-outline" id="btnClearData" style="color: var(--danger); border-color: #fca5a5;">⚠️ Clear Local Survey Data</button>
+            <button class="btn btn-outline" id="btnClearData" style="color: var(--danger); border-color: #fca5a5; font-weight: 700; background: #fff5f5;">🗑️ Delete All Survey Data (Local & Google Sheet)</button>
           </div>
         </div>
       </div>
@@ -2344,13 +2344,40 @@
       // Export CSV
       document.getElementById("btnExportCSV").addEventListener("click", exportCSVFile);
 
-      // Clear Data
-      document.getElementById("btnClearData").addEventListener("click", () => {
-        if (confirm("Are you sure you want to permanently clear all survey responses on this device?")) {
-          if (confirm("THIS ACTION CANNOT BE UNDONE. Confirm delete?")) {
+      // Clear All Survey Data (Local Storage & Google Sheet Backend)
+      document.getElementById("btnClearData").addEventListener("click", async () => {
+        if (confirm("⚠️ WARNING: This will permanently delete ALL survey responses from BOTH Local Storage and your connected Google Sheet (including submissions from all field personnel nationwide).
+
+Are you sure you want to proceed?")) {
+          if (confirm("FINAL CONFIRMATION: This action CANNOT be undone. Delete all survey records everywhere?")) {
+            // 1. Clear local storage
             localStorage.removeItem(LS_SURVEYS);
+
+            // 2. Clear Google Sheet backend
+            const targetUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
+            if (targetUrl && targetUrl.startsWith("http")) {
+              try {
+                await fetch(targetUrl, {
+                  method: "POST",
+                  mode: "no-cors",
+                  keepalive: true,
+                  headers: { "Content-Type": "text/plain;charset=utf-8" },
+                  body: JSON.stringify({ action: "clear_all" })
+                });
+                console.log("[Cloud] Clear all command dispatched to Google Sheet.");
+              } catch (err) {
+                console.warn("[Cloud Clear Error]:", err);
+              }
+            }
+
+            // 3. Reset UI state & stats
             refreshAdminStats();
-            showToast("🗑️ All survey data cleared.");
+            updateMySurveyCountBadge();
+            const tbodyDocs = document.getElementById("tbodyAdminDocs");
+            if (tbodyDocs) {
+              tbodyDocs.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Select or search a territory to inspect submissions</td></tr>';
+            }
+            showToast("🗑️ All survey data deleted from Local & Google Sheet.");
           }
         }
       });

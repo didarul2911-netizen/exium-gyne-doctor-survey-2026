@@ -3,9 +3,10 @@
  * 
  * Updates in this version:
  * 1. Target Tab: Writes directly into the existing "Survey Responses" sheet tab (with space).
- * 2. Clean Columns: Removed Speciality, Chamber/Hospital, Doctor Phone (now strictly 16 columns).
+ * 2. Clean Columns: Removed Speciality, Chamber/Hospital, Doctor Phone (strictly 16 columns).
  * 3. Server-Side Strict Deduplication: Checks existing Doctor RPL ID & Survey ID to prevent duplicate rows.
  * 4. Single-Submit Integrity: Appends once and only once upon doctor submission.
+ * 5. Clear All Data (Admin): Allows Admin to permanently wipe all response rows (keeping header intact).
  * 
  * How to update in Google Drive:
  * 1. Open your Google Sheet: "Exium_Gyne_Doctor_Survey_Master_2026".
@@ -16,7 +17,6 @@
  */
 
 function getTargetSheet(ss) {
-  // Target the user's primary "Survey Responses" tab
   var sheet = ss.getSheetByName("Survey Responses") || ss.getSheetByName("Survey_Responses");
   if (!sheet) {
     sheet = ss.insertSheet("Survey Responses");
@@ -45,6 +45,19 @@ function doPost(e) {
     }
 
     var data = JSON.parse(e.postData.contents);
+
+    // ADMIN ACTION: Clear All Data from Google Sheet
+    if (data && (data.action === "clear_all" || data.action === "reset_all")) {
+      var lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        sheet.getRange(2, 1, lastRow - 1, 16).clearContent();
+      }
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        message: "All survey responses cleared successfully from Google Sheet."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     var records = Array.isArray(data) ? data : (data.records ? data.records : [data]);
 
     // Build map of existing IDs in the sheet to PREVENT ANY DUPLICATE
@@ -128,6 +141,18 @@ function doGet(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = getTargetSheet(ss);
+
+    // ADMIN ACTION: Clear All Data via GET
+    if (e && e.parameter && (e.parameter.action === "clear_all" || e.parameter.action === "reset_all")) {
+      var lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        sheet.getRange(2, 1, lastRow - 1, 16).clearContent();
+      }
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        message: "All survey responses cleared successfully from Google Sheet."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
 
     if (e && e.parameter && e.parameter.action === "ping") {
       var count = sheet ? Math.max(0, sheet.getLastRow() - 1) : 0;
