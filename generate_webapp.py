@@ -1277,7 +1277,7 @@ def build():
       </div>
 
       <footer style="text-align: center; padding: 12px 10px 24px; font-size: 11px; color: rgba(255, 255, 255, 0.45); font-weight: 500;">
-      Exium MUPS Gyne Survey • Build v2.6
+      Exium MUPS Gyne Survey • Build v2.7
     </footer>
   </main>
 
@@ -1289,7 +1289,7 @@ def build():
         <div class="modal-header">
           <h3 style="font-size: 16px; font-weight: 700;">📊 Survey Submission Report</h3>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <button class="btn btn-outline" id="btnReportLiveRefresh" style="font-size: 11px; padding: 4px 8px; width: auto; border-color: var(--primary); color: var(--primary);" title="Pull latest survey responses from Google Sheet">🔄 Sync Live Data</button>
+            <button type="button" class="btn btn-outline" id="btnReportLiveRefresh" onclick="pullCloudData(true)" style="font-size: 11px; padding: 4px 8px; width: auto; border-color: var(--primary); color: var(--primary);" title="Pull latest survey responses from Google Sheet">🔄 Sync Live Data</button>
             <button type="button" class="btn-icon" id="btnReportsClose" onclick="closeReportsModal()" style="width: 28px; height: 28px;">✕</button>
           </div>
         </div>
@@ -1771,6 +1771,8 @@ def build():
           const sel = document.getElementById("reportMioTerrSelect");
           if (sel) renderMioReport(sel.value);
         }}
+        // Always auto-reconcile with Google Sheet when opening reports
+        pullCloudData(false);
       }}
     }}
 
@@ -3647,12 +3649,29 @@ def build():
     function initCloudSync() {{
       populateAdminCloudSettings();
 
-      // Fetch consolidated surveys once on startup
       const activeUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
       if (activeUrl && activeUrl.startsWith("http")) {{
+        // 1. Initial silent sync on startup
         setTimeout(() => {{
           pullCloudData(false);
-        }}, 500);
+        }}, 400);
+
+        // 2. Re-sync automatically whenever user switches to this tab or unlocks mobile phone
+        document.addEventListener("visibilitychange", () => {{
+          if (document.visibilityState === "visible") {{
+            pullCloudData(false);
+          }}
+        }});
+        window.addEventListener("focus", () => {{
+          pullCloudData(false);
+        }});
+
+        // 3. Periodic background sync every 25 seconds
+        setInterval(() => {{
+          if (navigator.onLine) {{
+            pullCloudData(false);
+          }}
+        }}, 25000);
       }}
     }}
 
@@ -3795,7 +3814,7 @@ def build():
 
 
       try {{
-        await fetch(cloudApiUrl, {{
+        await fetch(targetUrl, {{
           method: "POST",
           mode: "no-cors",
           headers: {{ "Content-Type": "text/plain;charset=utf-8" }},
@@ -3816,7 +3835,7 @@ def build():
       }}
     }}
 
-    // Pull all survey records from Google Sheet and merge
+    // Pull all survey records from Google Sheet and reconcile with local storage
     async function pullCloudData(showFeedback = false) {{
       const targetUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
       if (!targetUrl || !targetUrl.startsWith("http")) {{
@@ -3826,67 +3845,73 @@ def build():
 
       if (showFeedback) showToast("🔄 Fetching latest surveys from Google Sheet...");
 
-
       try {{
-        const sep = cloudApiUrl.includes("?") ? "&" : "?";
-        const res = await fetch(`${{cloudApiUrl}}${{sep}}action=get_all&_t=${{Date.now()}}`);
+        const sep = targetUrl.includes("?") ? "&" : "?";
+        const res = await fetch(`${{targetUrl}}${{sep}}action=get_all&_t=${{Date.now()}}`);
         if (!res.ok) throw new Error("HTTP " + res.status);
         const cloudRecords = await res.json();
 
         if (Array.isArray(cloudRecords)) {{
           const localSurveys = JSON.parse(localStorage.getItem(LS_SURVEYS) || "[]");
-          const localMap = new Map();
 
-          // Index local by id or RPL ID + territory
-          localSurveys.forEach(s => {{
-            const key = s.id || (s.doctor_rpl_id + "_" + s.sap_territory_code);
-            localMap.set(key, s);
+          // Index cloud records by key: id or RPL ID + territory
+          const cloudMap = new Map();
+          cloudRecords.forEach(c => {{
+            const key = (c.id && String(c.id).trim()) || (String(c.doctor_rpl_id).trim() + "_" + String(c.sap_territory_code).trim());
+            cloudMap.set(key, {{ ...c, synced: true }});
           }});
 
-          let newAdded = 0;
-          cloudRecords.forEach(c => {{
-            const key = c.id || (c.doctor_rpl_id + "_" + c.sap_territory_code);
-            if (!localMap.has(key)) {{
-              localMap.set(key, {{ ...c, synced: true }});
-              newAdded++;
+          // Check if this device has genuine offline pending records that haven't synced yet
+          const pendingUnsynced = [];
+          localSurveys.forEach(s => {{
+            if (!s.synced) {{
+              const key = (s.id && String(s.id).trim()) || (String(s.doctor_rpl_id).trim() + "_" + String(s.sap_territory_code).trim());
+              if (!cloudMap.has(key)) {{
+                pendingUnsynced.push(s);
+              }}
             }}
           }});
 
-          const merged = Array.from(localMap.values());
-          // Sort newest first
-          merged.sort((a, b) => new Date(b.timestamp || b.formatted_time || 0) - new Date(a.timestamp || a.formatted_time || 0));
-          localStorage.setItem(LS_SURVEYS, JSON.stringify(merged));
+          // RECONCILE: Central Cloud is the single source of truth!
+          // Any records deleted from Google Sheet (e.g. by Clear All Data on laptop)
+          // are immediately purged from this device's local storage as well.
+          const reconciled = [...Array.from(cloudMap.values()), ...pendingUnsynced];
+
+          reconciled.sort((a, b) => new Date(b.timestamp || b.formatted_time || 0) - new Date(a.timestamp || a.formatted_time || 0));
+          localStorage.setItem(LS_SURVEYS, JSON.stringify(reconciled));
 
           updateMySurveyCountBadge();
           if (isAdminLoggedIn) refreshAdminStats();
 
           // Refresh Survey Submission Report if active
           const reportsModal = document.getElementById("reportsModal");
-          if (reportsModal && reportsModal.classList.contains("active")) {{
+          if (reportsModal && (reportsModal.classList.contains("active") || reportsModal.style.display === "flex")) {{
             const activeTabBtn = document.querySelector(".report-tab-btn.active");
-            const activeTab = activeTabBtn ? activeTabBtn.dataset.tab : "tabMioReport";
-            if (activeTab === "tabMioReport") {{
+            const activeTab = activeTabBtn ? (activeTabBtn.dataset.tab || activeTabBtn.getAttribute("data-tab")) : "mioTab";
+            if (activeTab === "mioTab" || activeTab === "tabMioReport") {{
               const terrSelect = document.getElementById("reportMioTerrSelect");
               if (terrSelect && terrSelect.value) renderMioReport(terrSelect.value);
-            }} else if (activeTab === "tabRhReport") {{
+            }} else if (activeTab === "rhTab" || activeTab === "tabRhReport") {{
               const rhSelect = document.getElementById("reportRhRegionSelect");
               if (rhSelect && rhSelect.value) renderRhReport(rhSelect.value);
-            }} else if (activeTab === "tabZhReport") {{
+            }} else if (activeTab === "zhTab" || activeTab === "tabZhReport") {{
               const zhSelect = document.getElementById("reportZhZoneSelect");
               if (zhSelect && zhSelect.value) renderZhReport(zhSelect.value);
             }}
           }}
 
           if (showFeedback) {{
-            showToast(`✅ Cloud Sync Complete! ${{newAdded}} new records merged (${{merged.length}} total).`);
-          }} else if (newAdded > 0) {{
-            showToast(`🔔 ${{newAdded}} new survey response(s) synced from field!`);
+            showToast(`✅ Synced with Google Sheet (${{reconciled.length}} active records)`);
+          }}
+
+          if (pendingUnsynced.length > 0) {{
+            pushAllPendingToCloud(false);
           }}
         }}
       }} catch (err) {{
         console.warn("[Cloud Pull Error]:", err);
         if (showFeedback) {{
-          showToast("⚠️ Could not read from Google Sheet. Check permissions ('Anyone') or URL.");
+          showToast("⚠️ Could not read from Google Sheet. Check internet connection.");
         }}
       }} finally {{
         updateCloudStatusBadge();
