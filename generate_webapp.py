@@ -155,11 +155,10 @@ def build():
       margin: 0;
     }}
 
-    /* Line 2: Actions Bar (Live Cloud Sync, Reports, Admin) */
+    /* Line 2: Actions Bar (Reports & Admin) */
     .header-actions-row {{
       display: flex;
       align-items: center;
-      justify-content: space-between;
       gap: 8px;
       background: rgba(255, 255, 255, 0.1);
       padding: 5px 8px;
@@ -167,10 +166,47 @@ def build():
       border: 1px solid rgba(255, 255, 255, 0.15);
     }}
 
-    .header-actions-right {{
+    .btn-header-report {{
+      flex: 1;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: white;
+      border-radius: 8px;
+      padding: 0 12px;
+      height: 34px;
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }}
+
+    .btn-header-report:hover {{
+      background: rgba(255, 255, 255, 0.25);
+    }}
+
+    .btn-icon {{
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: white;
+      border-radius: 8px;
+      width: 38px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }}
+
+    .btn-icon:hover {{
+      background: rgba(255, 255, 255, 0.25);
     }}
 
     .btn-icon {{
@@ -1052,16 +1088,10 @@ def build():
         </div>
       </div>
 
-      <!-- Line 2: Actions Bar (Live Cloud Sync, Reports, Admin) -->
+      <!-- Line 2: Actions Bar (Reports & Admin) -->
       <div class="header-actions-row">
-        <button class="btn-cloud-sync" id="btnHeaderCloudSync" title="Cloud Sync Status & Real-Time Sync">
-          <span class="status-dot" id="cloudStatusDot"></span>
-          <span id="cloudStatusText">Live Sync</span>
-        </button>
-        <div class="header-actions-right">
-          <button class="btn-header-report" id="btnReportsOpen" title="Field Force Reports">📊 Reports</button>
-          <button class="btn-icon" id="btnAdminOpen" title="Central Admin">⚙️</button>
-        </div>
+        <button class="btn-header-report" id="btnReportsOpen" title="Survey Submission Report">📊 Survey Submission Report</button>
+        <button class="btn-icon" id="btnAdminOpen" title="Central Admin">⚙️</button>
       </div>
 
       <!-- Active Session Status Bar -->
@@ -2240,20 +2270,7 @@ def build():
         }}
       }});
 
-      // Header Cloud Sync Button Click
-      const btnHeaderCloudSync = document.getElementById("btnHeaderCloudSync");
-      if (btnHeaderCloudSync) {{
-        btnHeaderCloudSync.addEventListener("click", () => {{
-          if (!cloudApiUrl) {{
-            showToast("ℹ️ Set Google Apps Script URL in Admin to enable nationwide sync.");
-            document.getElementById("btnAdminOpen").click();
-          }} else {{
-            showToast("🔄 Syncing with Google Sheet...");
-            pushAllPendingToCloud(false);
-            pullCloudData(true);
-          }}
-        }});
-      }}
+
 
       // Report Live Refresh Button Click
       const btnReportLiveRefresh = document.getElementById("btnReportLiveRefresh");
@@ -3538,42 +3555,14 @@ def build():
     // ==============================================
 
     function initCloudSync() {{
-      updateCloudStatusBadge();
       populateAdminCloudSettings();
 
-      // Listen for network connectivity restoration
-      window.addEventListener("online", () => {{
-        console.log("[Network] Device back online. Resuming sync...");
-        updateCloudStatusBadge();
-        showToast("📶 Back online! Syncing pending surveys...");
-        pushAllPendingToCloud(false);
-        pullCloudData(false);
-      }});
-
-      window.addEventListener("offline", () => {{
-        console.log("[Network] Device went offline.");
-        updateCloudStatusBadge();
-      }});
-
-      // Auto-pull and sync on startup
+      // Fetch consolidated surveys once on startup
       const activeUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
       if (activeUrl && activeUrl.startsWith("http")) {{
         setTimeout(() => {{
-          pushAllPendingToCloud(false);
           pullCloudData(false);
-        }}, 600);
-
-        // Real-Time 15-Second Polling:
-        // Automatically syncs any pending submissions and pulls live updates from all MIOs nationwide
-        setInterval(() => {{
-          if (navigator.onLine) {{
-            const surveys = JSON.parse(localStorage.getItem(LS_SURVEYS) || "[]");
-            if (surveys.some(s => !s.synced)) {{
-              pushAllPendingToCloud(false);
-            }}
-            pullCloudData(false);
-          }}
-        }}, 15000);
+        }}, 500);
       }}
     }}
 
@@ -3602,39 +3591,7 @@ def build():
       }}
     }}
 
-    function updateCloudStatusBadge() {{
-      const btn = document.getElementById("btnHeaderCloudSync");
-      const dot = document.getElementById("cloudStatusDot");
-      const text = document.getElementById("cloudStatusText");
-      if (!btn || !dot || !text) return;
-
-      if (!navigator.onLine) {{
-        btn.className = "btn-cloud-sync offline";
-        dot.className = "status-dot offline";
-        text.textContent = "Offline";
-        return;
-      }}
-
-      if (!cloudApiUrl) {{
-        btn.className = "btn-cloud-sync";
-        dot.className = "status-dot";
-        text.textContent = "Local Only";
-        return;
-      }}
-
-      const surveys = JSON.parse(localStorage.getItem(LS_SURVEYS) || "[]");
-      const unsynced = surveys.filter(s => !s.synced).length;
-
-      if (unsynced > 0) {{
-        btn.className = "btn-cloud-sync offline";
-        dot.className = "status-dot offline";
-        text.textContent = `${{unsynced}} Pending`;
-      }} else {{
-        btn.className = "btn-cloud-sync connected";
-        dot.className = "status-dot connected";
-        text.textContent = "Live Cloud";
-      }}
-    }}
+    function updateCloudStatusBadge() {{}}
 
     function saveAdminCloudUrl() {{
       const input = document.getElementById("adminCloudUrlInput");
@@ -3704,19 +3661,13 @@ def build():
       }}
     }}
 
-    // Immediately push single survey to Google Cloud Sheet
+    // Push survey to Google Cloud Sheet once upon doctor submission
     async function pushSurveyToCloud(record) {{
       const targetUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
       if (!targetUrl || !targetUrl.startsWith("http") || !navigator.onLine) {{
-        console.log("[Cloud] Skipping immediate push (offline or no cloud URL). Record saved locally.");
-        updateCloudStatusBadge();
+        console.log("[Cloud] Offline. Saved locally.");
         return;
       }}
-
-      const dot = document.getElementById("cloudStatusDot");
-      const text = document.getElementById("cloudStatusText");
-      if (dot) dot.className = "status-dot syncing";
-      if (text) text.textContent = "Syncing...";
 
       try {{
         await fetch(targetUrl, {{
@@ -3727,25 +3678,9 @@ def build():
           body: JSON.stringify(record)
         }});
 
-        // Mark local record as synced
-        const surveys = JSON.parse(localStorage.getItem(LS_SURVEYS) || "[]");
-        const idx = surveys.findIndex(s => s.id === record.id);
-        if (idx !== -1) {{
-          surveys[idx].synced = true;
-          localStorage.setItem(LS_SURVEYS, JSON.stringify(surveys));
-        }}
-        console.log("[Cloud] Record successfully dispatched to Google Sheet:", record.id);
-
-        // Instantly trigger background pull after 1.2s to consolidate
-        setTimeout(() => {{
-          pullCloudData(false);
-        }}, 1200);
-
+        console.log("[Cloud] Single survey dispatched to Google Sheet:", record.id);
       }} catch (err) {{
         console.warn("[Cloud Push Error]:", err);
-      }} finally {{
-        updateCloudStatusBadge();
-        if (isAdminLoggedIn) refreshAdminStats();
       }}
     }}
 
@@ -3768,8 +3703,6 @@ def build():
 
       if (showFeedback) showToast(`⬆️ Pushing ${{unsynced.length}} local records to Google Sheet...`);
 
-      const dot = document.getElementById("cloudStatusDot");
-      const text = document.getElementById("cloudStatusText");
       if (dot) dot.className = "status-dot syncing";
       if (text) text.textContent = "Syncing...";
 
@@ -3805,8 +3738,6 @@ def build():
 
       if (showFeedback) showToast("🔄 Fetching latest surveys from Google Sheet...");
 
-      const dot = document.getElementById("cloudStatusDot");
-      const text = document.getElementById("cloudStatusText");
       if (dot) dot.className = "status-dot syncing";
       if (text) text.textContent = "Pulling...";
 

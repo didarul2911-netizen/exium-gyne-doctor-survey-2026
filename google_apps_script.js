@@ -1,34 +1,41 @@
 /**
  * Google Apps Script for Exium MUPS - GERD and Pregnancy Survey 2026
  * 
- * Instructions:
- * 1. Create a Google Sheet named "Exium_Gyne_Doctor_Survey_2026" (or any name you prefer).
+ * Updates in this version:
+ * 1. Target Tab: Writes directly into the existing "Survey Responses" sheet tab (with space).
+ * 2. Clean Columns: Removed Speciality, Chamber/Hospital, Doctor Phone (now strictly 16 columns).
+ * 3. Server-Side Strict Deduplication: Checks existing Doctor RPL ID & Survey ID to prevent duplicate rows.
+ * 4. Single-Submit Integrity: Appends once and only once upon doctor submission.
+ * 
+ * How to update in Google Drive:
+ * 1. Open your Google Sheet: "Exium_Gyne_Doctor_Survey_Master_2026".
  * 2. Open Extensions > Apps Script.
- * 3. Replace all code in Code.gs with this entire script.
- * 4. Click Deploy > New Deployment.
- *    - Click the gear icon next to "Select type" and choose "Web app".
- *    - Description: Exium Survey Real-Time Sync v1
- *    - Execute as: "Me" (your email)
- *    - Who has access: "Anyone" (allows MIO field force phones to sync)
- * 5. Click "Deploy", authorize permissions when prompted, and copy the Web App URL.
- * 6. In your Survey Portal Admin Panel, paste this Web App URL.
+ * 3. Replace all code in Code.gs with this code.
+ * 4. Click Deploy > Manage deployments > Click the Pencil (Edit) icon.
+ * 5. Change Version to: "New version", and click Deploy.
  */
+
+function getTargetSheet(ss) {
+  // Target the user's primary "Survey Responses" tab
+  var sheet = ss.getSheetByName("Survey Responses") || ss.getSheetByName("Survey_Responses");
+  if (!sheet) {
+    sheet = ss.insertSheet("Survey Responses");
+    sheet.appendRow([
+      "Timestamp", "Zone", "Zonal Head", "Region", "Regional Head", 
+      "SAP Territory Code", "Territory Name", "SAP MIO Code", "MIO / Sr. MIO Name", 
+      "Doctor Full Name", "Doctor RPL ID", 
+      "Q1 Code", "Q1 Answer (Trimester)", "Q2 Code", "Q2 Answer (GERD Symptom)", "Survey Record ID"
+    ]);
+    sheet.getRange(1, 1, 1, 16).setBackground("#0284c7").setFontColor("#ffffff").setFontWeight("bold");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
 
 function doPost(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName("Survey_Responses");
-    if (!sheet) {
-      sheet = ss.insertSheet("Survey_Responses");
-      sheet.appendRow([
-        "Timestamp", "Zone", "Zonal Head", "Region", "Regional Head", 
-        "SAP Territory Code", "Territory Name", "SAP MIO Code", "MIO Name", 
-        "Doctor Name", "Doctor RPL ID", "Speciality", "Chamber/Hospital", "Doctor Phone", 
-        "Q1 Code", "Q1 Answer", "Q2 Code", "Q2 Answer", "Survey ID"
-      ]);
-      sheet.getRange(1, 1, 1, 19).setBackground("#0284c7").setFontColor("#ffffff").setFontWeight("bold");
-      sheet.setFrozenRows(1);
-    }
+    var sheet = getTargetSheet(ss);
 
     if (!e || !e.postData || !e.postData.contents) {
       return ContentService.createTextOutput(JSON.stringify({
@@ -39,12 +46,45 @@ function doPost(e) {
 
     var data = JSON.parse(e.postData.contents);
     var records = Array.isArray(data) ? data : (data.records ? data.records : [data]);
-    var rowsToAdd = [];
 
+    // Build map of existing IDs in the sheet to PREVENT ANY DUPLICATE
+    var existingIds = {};
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      var existingData = sheet.getRange(2, 1, lastRow - 1, 16).getValues();
+      for (var k = 0; k < existingData.length; k++) {
+        var rowTerr = String(existingData[k][5] || "").trim();  // col 6: SAP Territory Code
+        var rowDocRpl = String(existingData[k][10] || "").trim(); // col 11: Doctor RPL ID
+        var rowSurveyId = String(existingData[k][15] || "").trim(); // col 16: Survey Record ID
+        
+        if (rowSurveyId) existingIds[rowSurveyId] = true;
+        if (rowDocRpl && rowTerr) existingIds[rowDocRpl + "_" + rowTerr] = true;
+      }
+    }
+
+    var rowsToAdd = [];
     for (var i = 0; i < records.length; i++) {
       var r = records[i];
       if (!r || (!r.doctor_name && !r.doctor_rpl_id && !r.id)) continue;
 
+      var surveyId = String(r.id || "").trim();
+      var docRpl = String(r.doctor_rpl_id || "").trim();
+      var terrCode = String(r.sap_territory_code || "").trim();
+      var dedupKey = (docRpl && terrCode) ? (docRpl + "_" + terrCode) : "";
+
+      // DEDUPLICATION: If this doctor survey already exists, SKIP IT
+      if (surveyId && existingIds[surveyId]) {
+        continue;
+      }
+      if (dedupKey && existingIds[dedupKey]) {
+        continue;
+      }
+
+      // Mark as seen
+      if (surveyId) existingIds[surveyId] = true;
+      if (dedupKey) existingIds[dedupKey] = true;
+
+      // Clean 16 Columns (NO Speciality, NO Chamber/Hospital, NO Doctor Phone)
       rowsToAdd.push([
         r.formatted_time || r.timestamp || new Date().toLocaleString(),
         r.zone || "",
@@ -57,26 +97,23 @@ function doPost(e) {
         r.mio_name || "",
         r.doctor_name || "",
         r.doctor_rpl_id || "",
-        r.doctor_speciality || "",
-        r.doctor_chamber || "",
-        r.doctor_phone || "",
         r.q1_code || "",
         r.q1_answer_en || "",
         r.q2_code || "",
         r.q2_answer_en || "",
-        r.id || ("SURV_" + Date.now() + "_" + Math.floor(Math.random()*10000))
+        surveyId || ("SURV_" + Date.now() + "_" + Math.floor(Math.random()*10000))
       ]);
     }
 
     if (rowsToAdd.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAdd.length, 19).setValues(rowsToAdd);
+      sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAdd.length, 16).setValues(rowsToAdd);
     }
 
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
-      count: rowsToAdd.length,
+      appended: rowsToAdd.length,
       total_rows: Math.max(0, sheet.getLastRow() - 1),
-      message: "Data appended successfully to Google Sheet."
+      message: "Data processed with strict deduplication."
     })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
@@ -90,20 +127,16 @@ function doPost(e) {
 function doGet(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName("Survey_Responses");
-    
+    var sheet = getTargetSheet(ss);
+
     if (e && e.parameter && e.parameter.action === "ping") {
       var count = sheet ? Math.max(0, sheet.getLastRow() - 1) : 0;
       return ContentService.createTextOutput(JSON.stringify({
         status: "ok",
         app: "Exium GERD and Pregnancy Survey Backend",
-        timestamp: new Date().toISOString(),
+        sheet_name: sheet.getName(),
         total_records: count
       })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    if (!sheet) {
-      return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
     }
 
     var values = sheet.getDataRange().getValues();
@@ -127,14 +160,11 @@ function doGet(e) {
         mio_name: String(row[8] || ""),
         doctor_name: String(row[9] || ""),
         doctor_rpl_id: String(row[10] || ""),
-        doctor_speciality: String(row[11] || ""),
-        doctor_chamber: String(row[12] || ""),
-        doctor_phone: String(row[13] || ""),
-        q1_code: String(row[14] || ""),
-        q1_answer_en: String(row[15] || ""),
-        q2_code: String(row[16] || ""),
-        q2_answer_en: String(row[17] || ""),
-        id: String(row[18] || ("REC_" + r)),
+        q1_code: String(row[11] || ""),
+        q1_answer_en: String(row[12] || ""),
+        q2_code: String(row[13] || ""),
+        q2_answer_en: String(row[14] || ""),
+        id: String(row[15] || ("REC_" + r)),
         synced: true
       };
       result.push(obj);
