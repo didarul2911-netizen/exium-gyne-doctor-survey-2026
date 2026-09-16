@@ -1710,7 +1710,8 @@ def build():
     const LS_MIO = "EXIUM_ACTIVE_MIO_SESSION";
     const LS_QUESTIONS = "EXIUM_SURVEY_QUESTIONS_CONFIG_V3";
     const LS_CLOUD_URL = "EXIUM_GYNE_CLOUD_URL_2026";
-    let cloudApiUrl = localStorage.getItem(LS_CLOUD_URL) || "";
+    const DEFAULT_CLOUD_URL = "https://script.google.com/macros/s/AKfycbyNC2sDd7cN0286cA51r8vUxRrsxePn51wnjRsK0HQcsBEqa1EQKmMNTeE_Eeia5YNigA/exec";
+    let cloudApiUrl = localStorage.getItem(LS_CLOUD_URL) || DEFAULT_CLOUD_URL;
 
     // Initialize Application
     document.addEventListener("DOMContentLoaded", () => {{
@@ -3538,7 +3539,6 @@ def build():
 
     function initCloudSync() {{
       updateCloudStatusBadge();
-      // Populate admin input if present
       populateAdminCloudSettings();
 
       // Listen for network connectivity restoration
@@ -3555,19 +3555,32 @@ def build():
         updateCloudStatusBadge();
       }});
 
-      // Auto-pull and sync on boot if URL is configured
-      if (cloudApiUrl && cloudApiUrl.startsWith("http")) {{
+      // Auto-pull and sync on startup
+      const activeUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
+      if (activeUrl && activeUrl.startsWith("http")) {{
         setTimeout(() => {{
           pushAllPendingToCloud(false);
           pullCloudData(false);
-        }}, 1200);
+        }}, 600);
+
+        // Real-Time 15-Second Polling:
+        // Automatically syncs any pending submissions and pulls live updates from all MIOs nationwide
+        setInterval(() => {{
+          if (navigator.onLine) {{
+            const surveys = JSON.parse(localStorage.getItem(LS_SURVEYS) || "[]");
+            if (surveys.some(s => !s.synced)) {{
+              pushAllPendingToCloud(false);
+            }}
+            pullCloudData(false);
+          }}
+        }}, 15000);
       }}
     }}
 
     function populateAdminCloudSettings() {{
       const input = document.getElementById("adminCloudUrlInput");
       if (input) {{
-        input.value = cloudApiUrl || "";
+        input.value = cloudApiUrl || DEFAULT_CLOUD_URL;
       }}
       updateAdminCloudPill();
     }}
@@ -3575,13 +3588,14 @@ def build():
     function updateAdminCloudPill() {{
       const pill = document.getElementById("adminCloudStatusPill");
       if (!pill) return;
-      if (!cloudApiUrl) {{
+      const url = cloudApiUrl || DEFAULT_CLOUD_URL;
+      if (!url) {{
         pill.textContent = "Not Configured";
         pill.style.background = "#fef3c7";
         pill.style.color = "#92400e";
         pill.style.borderColor = "#fde68a";
       }} else {{
-        pill.textContent = "Configured";
+        pill.textContent = "Connected (Live)";
         pill.style.background = "#dcfce7";
         pill.style.color = "#15803d";
         pill.style.borderColor = "#86efac";
@@ -3692,7 +3706,8 @@ def build():
 
     // Immediately push single survey to Google Cloud Sheet
     async function pushSurveyToCloud(record) {{
-      if (!cloudApiUrl || !cloudApiUrl.startsWith("http") || !navigator.onLine) {{
+      const targetUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
+      if (!targetUrl || !targetUrl.startsWith("http") || !navigator.onLine) {{
         console.log("[Cloud] Skipping immediate push (offline or no cloud URL). Record saved locally.");
         updateCloudStatusBadge();
         return;
@@ -3704,9 +3719,10 @@ def build():
       if (text) text.textContent = "Syncing...";
 
       try {{
-        await fetch(cloudApiUrl, {{
+        await fetch(targetUrl, {{
           method: "POST",
           mode: "no-cors",
+          keepalive: true,
           headers: {{ "Content-Type": "text/plain;charset=utf-8" }},
           body: JSON.stringify(record)
         }});
@@ -3719,6 +3735,12 @@ def build():
           localStorage.setItem(LS_SURVEYS, JSON.stringify(surveys));
         }}
         console.log("[Cloud] Record successfully dispatched to Google Sheet:", record.id);
+
+        // Instantly trigger background pull after 1.2s to consolidate
+        setTimeout(() => {{
+          pullCloudData(false);
+        }}, 1200);
+
       }} catch (err) {{
         console.warn("[Cloud Push Error]:", err);
       }} finally {{
@@ -3729,7 +3751,8 @@ def build():
 
     // Push all unsynced surveys to Google Sheet
     async function pushAllPendingToCloud(showFeedback = false) {{
-      if (!cloudApiUrl || !cloudApiUrl.startsWith("http")) {{
+      const targetUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
+      if (!targetUrl || !targetUrl.startsWith("http")) {{
         if (showFeedback) showToast("⚠️ Configure Google Apps Script URL in Admin first.");
         return;
       }}
@@ -3774,7 +3797,8 @@ def build():
 
     // Pull all survey records from Google Sheet and merge
     async function pullCloudData(showFeedback = false) {{
-      if (!cloudApiUrl || !cloudApiUrl.startsWith("http")) {{
+      const targetUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
+      if (!targetUrl || !targetUrl.startsWith("http")) {{
         if (showFeedback) showToast("⚠️ Configure Google Apps Script URL in Admin first.");
         return;
       }}
@@ -3838,6 +3862,8 @@ def build():
 
           if (showFeedback) {{
             showToast(`✅ Cloud Sync Complete! ${{newAdded}} new records merged (${{merged.length}} total).`);
+          }} else if (newAdded > 0) {{
+            showToast(`🔔 ${{newAdded}} new survey response(s) synced from field!`);
           }}
         }}
       }} catch (err) {{
