@@ -1277,7 +1277,7 @@ def build():
       </div>
 
       <footer style="text-align: center; padding: 12px 10px 24px; font-size: 11px; color: rgba(255, 255, 255, 0.45); font-weight: 500;">
-      Exium MUPS Gyne Survey • Build v2.7
+      Exium MUPS Gyne Survey • Build v2.8 (Central Cloud Sync Guaranteed)
     </footer>
   </main>
 
@@ -2453,6 +2453,8 @@ def build():
             const targetUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
             if (targetUrl && targetUrl.startsWith("http")) {{
               try {{
+                const sep = targetUrl.includes("?") ? "&" : "?";
+                fetch(`${{targetUrl}}${{sep}}action=clear_all&_t=${{Date.now()}}`).catch(() => {{}});
                 await fetch(targetUrl, {{
                   method: "POST",
                   mode: "no-cors",
@@ -2711,7 +2713,9 @@ def build():
         q1_answer_en: q1SelectedObj ? q1SelectedObj.text_en : "",
         q2_code: selectedQ2,
         q2_answer_en: q2SelectedObj ? q2SelectedObj.text_en : "",
-        synced: false
+        synced: false,
+        _is_offline_pending: !navigator.onLine,
+        _created_timestamp: Date.now()
       }};
 
       surveys.push(record);
@@ -3666,12 +3670,12 @@ def build():
           pullCloudData(false);
         }});
 
-        // 3. Periodic background sync every 25 seconds
+        // 3. Periodic background sync every 15 seconds
         setInterval(() => {{
           if (navigator.onLine) {{
             pullCloudData(false);
           }}
-        }}, 25000);
+        }}, 15000);
       }}
     }}
 
@@ -3770,11 +3774,29 @@ def build():
       }}
     }}
 
+    // Helper to update a record's sync attributes in localStorage
+    function updateLocalSurveyRecord(rec) {{
+      try {{
+        const surveys = JSON.parse(localStorage.getItem(LS_SURVEYS) || "[]");
+        const idx = surveys.findIndex(s => s.id === rec.id);
+        if (idx >= 0) {{
+          surveys[idx] = {{ ...surveys[idx], ...rec }};
+          localStorage.setItem(LS_SURVEYS, JSON.stringify(surveys));
+        }}
+      }} catch(e) {{
+        console.warn("updateLocalSurveyRecord error:", e);
+      }}
+    }}
+
     // Push survey to Google Cloud Sheet once upon doctor submission
     async function pushSurveyToCloud(record) {{
       const targetUrl = cloudApiUrl || DEFAULT_CLOUD_URL;
       if (!targetUrl || !targetUrl.startsWith("http") || !navigator.onLine) {{
-        console.log("[Cloud] Offline. Saved locally.");
+        console.log("[Cloud] Offline. Saved locally for later sync.");
+        record._is_offline_pending = true;
+        record._created_timestamp = record._created_timestamp || Date.now();
+        record.synced = false;
+        updateLocalSurveyRecord(record);
         return;
       }}
 
@@ -3788,8 +3810,17 @@ def build():
         }});
 
         console.log("[Cloud] Single survey dispatched to Google Sheet:", record.id);
+        // Mark as synced immediately in local storage
+        record.synced = true;
+        record._is_offline_pending = false;
+        record._created_timestamp = record._created_timestamp || Date.now();
+        updateLocalSurveyRecord(record);
       }} catch (err) {{
         console.warn("[Cloud Push Error]:", err);
+        record._is_offline_pending = true;
+        record._created_timestamp = record._created_timestamp || Date.now();
+        record.synced = false;
+        updateLocalSurveyRecord(record);
       }}
     }}
 
@@ -3802,7 +3833,7 @@ def build():
       }}
 
       const surveys = JSON.parse(localStorage.getItem(LS_SURVEYS) || "[]");
-      const unsynced = surveys.filter(s => !s.synced);
+      const unsynced = surveys.filter(s => !s.synced && s._is_offline_pending === true);
 
       if (unsynced.length === 0) {{
         if (showFeedback) showToast("ℹ️ All records are already synced with the cloud!");
@@ -3811,7 +3842,6 @@ def build():
       }}
 
       if (showFeedback) showToast(`⬆️ Pushing ${{unsynced.length}} local records to Google Sheet...`);
-
 
       try {{
         await fetch(targetUrl, {{
@@ -3822,7 +3852,12 @@ def build():
         }});
 
         // Mark all as synced
-        surveys.forEach(s => s.synced = true);
+        surveys.forEach(s => {{
+          if (unsynced.some(u => u.id === s.id)) {{
+            s.synced = true;
+            s._is_offline_pending = false;
+          }}
+        }});
         localStorage.setItem(LS_SURVEYS, JSON.stringify(surveys));
 
         if (showFeedback) showToast(`✅ Successfully pushed ${{unsynced.length}} records to Google Sheet!`);
@@ -3854,19 +3889,22 @@ def build():
         if (Array.isArray(cloudRecords)) {{
           const localSurveys = JSON.parse(localStorage.getItem(LS_SURVEYS) || "[]");
 
-          // Index cloud records by key: id or RPL ID + territory
+          // Index cloud records by key: id or (RPL ID + territory)
           const cloudMap = new Map();
           cloudRecords.forEach(c => {{
             const key = (c.id && String(c.id).trim()) || (String(c.doctor_rpl_id).trim() + "_" + String(c.sap_territory_code).trim());
-            cloudMap.set(key, {{ ...c, synced: true }});
+            cloudMap.set(key, {{ ...c, synced: true, _is_offline_pending: false }});
           }});
 
           // Check if this device has genuine offline pending records that haven't synced yet
+          // ONLY keep local records that were explicitly created on THIS device while offline within the last 24h
           const pendingUnsynced = [];
+          const now = Date.now();
           localSurveys.forEach(s => {{
-            if (!s.synced) {{
+            if (s._is_offline_pending === true && !s.synced) {{
               const key = (s.id && String(s.id).trim()) || (String(s.doctor_rpl_id).trim() + "_" + String(s.sap_territory_code).trim());
-              if (!cloudMap.has(key)) {{
+              const recordAgeHours = s._created_timestamp ? (now - s._created_timestamp) / (1000 * 60 * 60) : 999;
+              if (!cloudMap.has(key) && recordAgeHours < 24) {{
                 pendingUnsynced.push(s);
               }}
             }}
@@ -3874,7 +3912,7 @@ def build():
 
           // RECONCILE: Central Cloud is the single source of truth!
           // Any records deleted from Google Sheet (e.g. by Clear All Data on laptop)
-          // are immediately purged from this device's local storage as well.
+          // or ghost records from previous tests are immediately PURGED from this device!
           const reconciled = [...Array.from(cloudMap.values()), ...pendingUnsynced];
 
           reconciled.sort((a, b) => new Date(b.timestamp || b.formatted_time || 0) - new Date(a.timestamp || a.formatted_time || 0));
@@ -3904,6 +3942,7 @@ def build():
             showToast(`✅ Synced with Google Sheet (${{reconciled.length}} active records)`);
           }}
 
+          // If there are genuine offline pending records, push them now
           if (pendingUnsynced.length > 0) {{
             pushAllPendingToCloud(false);
           }}
