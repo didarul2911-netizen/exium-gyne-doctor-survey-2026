@@ -1,7 +1,7 @@
 /**
  * Google Apps Script for Exium MUPS - GERD and Pregnancy Survey 2026
  * 
- * Updates in this version (5 Questions Support):
+ * Updates in this version (5 Questions Support + Auto-Formatting):
  * 1. Target Tab: Writes directly into "Survey Responses" sheet tab.
  * 2. 5 Survey Questions (22 Columns):
  *    - Q1: Trimester of GERD occurrence
@@ -9,16 +9,21 @@
  *    - Q3: Lifestyle modification resolution rate
  *    - Q4: First-choice medication
  *    - Q5: Preferred PPI molecule
- * 3. Server-Side Strict Deduplication: Checks Doctor RPL ID & Territory Code.
- * 4. Single-Submit Integrity: Appends once upon doctor submission.
- * 5. Clear All Data (Admin): Allows Admin to wipe all response rows.
+ * 3. Auto-Formatting: Exact column widths, row height (38px), middle vertical alignment,
+ *    text wrapping, and center-aligned code columns so headers never truncate.
+ * 4. Google Sheets UI Menu: '📋 Exium Survey' > '🎨 Auto-Format Sheet & Columns'.
+ * 5. Web Endpoint: ?action=format to trigger format programmatically.
+ * 6. Server-Side Strict Deduplication: Checks Doctor RPL ID & Territory Code.
+ * 7. Single-Submit Integrity: Appends once upon doctor submission.
+ * 8. Clear All Data (Admin): Allows Admin to wipe all response rows.
  * 
  * How to update in Google Drive:
  * 1. Open your Google Sheet: "Exium_Gyne_Doctor_Survey_Master_2026".
  * 2. Open Extensions > Apps Script.
  * 3. Replace all code in Code.gs with this code.
- * 4. Click Deploy > Manage deployments > Click the Pencil (Edit) icon.
- * 5. Change Version to: "New version", and click Deploy.
+ * 4. Select "formatSurveySheet" from the toolbar dropdown and click "Run" (or refresh Sheet and use the menu).
+ * 5. Click Deploy > Manage deployments > Click the Pencil (Edit) icon.
+ * 6. Change Version to: "New version", and click Deploy.
  */
 
 var HEADERS_22 = [
@@ -33,15 +38,87 @@ var HEADERS_22 = [
   "Survey Record ID"
 ];
 
+// Optimal pixel widths for every column to prevent text truncation
+var COLUMN_WIDTHS_22 = [
+  160, // 1: Timestamp
+  120, // 2: Zone
+  150, // 3: Zonal Head
+  130, // 4: Region
+  150, // 5: Regional Head
+  120, // 6: SAP Territory Code
+  160, // 7: Territory Name
+  110, // 8: SAP MIO Code
+  160, // 9: MIO / Sr. MIO Name
+  190, // 10: Doctor Full Name
+  120, // 11: Doctor RPL ID
+  80,  // 12: Q1 Code
+  180, // 13: Q1 Answer (Trimester)
+  80,  // 14: Q2 Code
+  240, // 15: Q2 Answer (GERD Symptom)
+  80,  // 16: Q3 Code
+  260, // 17: Q3 Answer (Lifestyle Resolution)
+  80,  // 18: Q4 Code
+  240, // 19: Q4 Answer (First Choice Medicine)
+  80,  // 20: Q5 Code
+  240, // 21: Q5 Answer (Preferred PPI Molecule)
+  160  // 22: Survey Record ID
+];
+
+function formatSheet(sheet) {
+  if (!sheet) return;
+  var lastRow = Math.max(1, sheet.getLastRow());
+
+  // Format header row (Row 1)
+  var headerRange = sheet.getRange(1, 1, 1, HEADERS_22.length);
+  headerRange.setValues([HEADERS_22]);
+  headerRange.setBackground("#0284c7");
+  headerRange.setFontColor("#ffffff");
+  headerRange.setFontWeight("bold");
+  headerRange.setFontSize(10);
+  headerRange.setFontFamily("Calibri");
+  headerRange.setVerticalAlignment("middle");
+  headerRange.setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
+  sheet.setRowHeight(1, 38);
+  sheet.setFrozenRows(1);
+
+  // Set explicit column widths
+  for (var i = 0; i < COLUMN_WIDTHS_22.length; i++) {
+    sheet.setColumnWidth(i + 1, COLUMN_WIDTHS_22[i]);
+  }
+
+  // Center align code columns (12, 14, 16, 18, 20) and ID/code columns (6, 8, 11)
+  var centerCols = [6, 8, 11, 12, 14, 16, 18, 20];
+  for (var c = 0; c < centerCols.length; c++) {
+    var colNum = centerCols[c];
+    sheet.getRange(1, colNum, lastRow, 1).setHorizontalAlignment("center");
+  }
+}
+
+function onOpen() {
+  try {
+    var ui = SpreadsheetApp.getUi();
+    ui.createMenu('📋 Exium Survey')
+      .addItem('🎨 Auto-Format Sheet & Columns', 'formatSurveySheet')
+      .addToUi();
+  } catch (e) {}
+}
+
+function formatSurveySheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = getTargetSheet(ss);
+  formatSheet(sheet);
+  try {
+    ss.toast("Headers and column widths have been formatted perfectly!", "Formatting Complete", 5);
+  } catch (e) {}
+}
+
 function getTargetSheet(ss) {
   var sheet = ss.getSheetByName("Survey Responses") || ss.getSheetByName("Survey_Responses");
   if (!sheet) {
     sheet = ss.insertSheet("Survey Responses");
-    sheet.appendRow(HEADERS_22);
-    sheet.getRange(1, 1, 1, HEADERS_22.length).setBackground("#0284c7").setFontColor("#ffffff").setFontWeight("bold");
-    sheet.setFrozenRows(1);
+    formatSheet(sheet);
   } else if (sheet.getLastColumn() < HEADERS_22.length) {
-    sheet.getRange(1, 1, 1, HEADERS_22.length).setValues([HEADERS_22]).setBackground("#0284c7").setFontColor("#ffffff").setFontWeight("bold");
+    formatSheet(sheet);
   }
   return sheet;
 }
@@ -174,6 +251,15 @@ function doGet(e) {
       return ContentService.createTextOutput(JSON.stringify({
         status: "success",
         message: "All survey responses cleared successfully from Google Sheet."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ADMIN ACTION: Auto-Format Headers and Column Widths via GET
+    if (e && e.parameter && (e.parameter.action === "format" || e.parameter.action === "format_headers")) {
+      formatSheet(sheet);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        message: "Headers and column widths formatted successfully!"
       })).setMimeType(ContentService.MimeType.JSON);
     }
 

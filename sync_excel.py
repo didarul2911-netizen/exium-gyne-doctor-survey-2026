@@ -26,10 +26,10 @@ def sync_responses_to_excel(input_json_path=None):
     wb = openpyxl.load_workbook(master_excel)
     ws_resp = wb["Survey Responses"]
 
-    # Collect existing IDs to avoid duplicates
+    # Collect existing IDs to avoid duplicates (column 22 is Survey Record ID)
     existing_ids = set()
     for r in range(2, ws_resp.max_row + 1):
-        v = ws_resp.cell(r, 19).value
+        v = ws_resp.cell(r, 22).value
         if v:
             existing_ids.add(str(v).strip())
 
@@ -64,13 +64,16 @@ def sync_responses_to_excel(input_json_path=None):
             item.get("mio_name") or "",
             item.get("doctor_name") or "",
             item.get("doctor_rpl_id") or "",
-            item.get("doctor_speciality") or "",
-            item.get("doctor_chamber") or "",
-            item.get("doctor_phone") or "",
             item.get("q1_code") or "",
             item.get("q1_answer_en") or "",
             item.get("q2_code") or "",
             item.get("q2_answer_en") or "",
+            item.get("q3_code") or "",
+            item.get("q3_answer_en") or "",
+            item.get("q4_code") or "",
+            item.get("q4_answer_en") or "",
+            item.get("q5_code") or "",
+            item.get("q5_answer_en") or "",
             item_id
         ]
 
@@ -78,7 +81,7 @@ def sync_responses_to_excel(input_json_path=None):
             c = ws_resp.cell(start_row, col_idx, value=val)
             c.font = font_data
             c.border = thin_border
-            if col_idx in (1, 6, 8, 11, 15, 17, 19):
+            if col_idx in (1, 6, 8, 11, 12, 14, 16, 18, 20, 22):
                 c.alignment = align_center
             else:
                 c.alignment = align_left

@@ -98,56 +98,45 @@ def build_master_excel():
     ws_sum.row_dimensions[4].height = 18
     ws_sum.row_dimensions[5].height = 28
 
-    # Section 1: Question 1 Breakdown
-    ws_sum.cell(7, 2, value="1. " + q_cfg["questions"][0]["title_en"]).font = font_section
+    # Dynamic Questions Breakdown (Q1 to Q5)
+    curr_row = 7
+    for q_idx, q in enumerate(q_cfg["questions"]):
+        q_num = q["number"]
+        q_title = q["title_en"]
+        code_col_letter = get_column_letter(12 + (q_idx * 2)) # Q1: L, Q2: N, Q3: P, Q4: R, Q5: T
 
-    q1_headers = ["Option Code", "Trimester / Clinical Response", "Response Count", "% Share"]
-    for idx, h in enumerate(q1_headers, start=2):
-        cell = ws_sum.cell(9, idx, value=h)
-        cell.font = font_header
-        cell.fill = fill_blue
-        cell.alignment = align_center if idx in (2, 4, 5) else align_left
+        ws_sum.cell(curr_row, 2, value=f"{q_num}. {q_title}").font = font_section
 
-    q1_opts = q_cfg["questions"][0]["options"]
-    for idx, opt in enumerate(q1_opts, start=10):
-        r_code = opt["code"]
-        r_text = opt["text_en"]
-        ws_sum.cell(idx, 2, value=r_code).alignment = align_center
-        ws_sum.cell(idx, 3, value=r_text).alignment = align_left
-        ws_sum.cell(idx, 4, value=f"=COUNTIF('Survey Responses'!M:M, \"{r_code}\")").alignment = align_center
-        ws_sum.cell(idx, 5, value=f"=IF(COUNTA('Survey Responses'!A2:A5000)>0, D{idx}/COUNTA('Survey Responses'!A2:A5000), 0)").alignment = align_center
-        ws_sum.cell(idx, 5).number_format = "0.0%"
-        for c in range(2, 6):
-            ws_sum.cell(idx, c).font = font_data
-            ws_sum.cell(idx, c).border = thin_border
+        sub_headers = ["Option Code", "Clinical Response / Option", "Response Count", "% Share"]
+        for idx, h in enumerate(sub_headers, start=2):
+            cell = ws_sum.cell(curr_row + 2, idx, value=h)
+            cell.font = font_header
+            cell.fill = fill_blue
+            cell.alignment = align_center if idx in (2, 4, 5) else align_left
+        ws_sum.row_dimensions[curr_row + 2].height = 22
 
-    # Section 2: Question 2 Breakdown
-    q2_start = 16
-    ws_sum.cell(q2_start, 2, value="2. " + q_cfg["questions"][1]["title_en"]).font = font_section
+        opt_start = curr_row + 3
+        for opt_idx, opt in enumerate(q["options"]):
+            r_idx = opt_start + opt_idx
+            r_code = opt["code"]
+            r_text = opt["text_en"]
 
-    q2_headers = ["Option Code", "Commonly Reported GERD Symptom", "Response Count", "% Share"]
-    for idx, h in enumerate(q2_headers, start=2):
-        cell = ws_sum.cell(q2_start + 2, idx, value=h)
-        cell.font = font_header
-        cell.fill = fill_blue
-        cell.alignment = align_center if idx in (2, 4, 5) else align_left
+            ws_sum.cell(r_idx, 2, value=r_code).alignment = align_center
+            ws_sum.cell(r_idx, 3, value=r_text).alignment = align_left
+            ws_sum.cell(r_idx, 4, value=f"=COUNTIF('Survey Responses'!{code_col_letter}:{code_col_letter}, \"{r_code}\")").alignment = align_center
+            ws_sum.cell(r_idx, 5, value=f"=IF(COUNTA('Survey Responses'!A2:A5000)>0, D{r_idx}/COUNTA('Survey Responses'!A2:A5000), 0)").alignment = align_center
+            ws_sum.cell(r_idx, 5).number_format = "0.0%"
 
-    q2_opts = q_cfg["questions"][1]["options"]
-    for idx, opt in enumerate(q2_opts, start=q2_start + 3):
-        r_code = opt["code"]
-        r_text = opt["text_en"]
-        ws_sum.cell(idx, 2, value=r_code).alignment = align_center
-        ws_sum.cell(idx, 3, value=r_text).alignment = align_left
-        ws_sum.cell(idx, 4, value=f"=COUNTIF('Survey Responses'!O:O, \"{r_code}\")").alignment = align_center
-        ws_sum.cell(idx, 5, value=f"=IF(COUNTA('Survey Responses'!A2:A5000)>0, D{idx}/COUNTA('Survey Responses'!A2:A5000), 0)").alignment = align_center
-        ws_sum.cell(idx, 5).number_format = "0.0%"
-        for c in range(2, 6):
-            ws_sum.cell(idx, c).font = font_data
-            ws_sum.cell(idx, c).border = thin_border
+            for c in range(2, 6):
+                ws_sum.cell(r_idx, c).font = font_data
+                ws_sum.cell(r_idx, c).border = thin_border
+            ws_sum.row_dimensions[r_idx].height = 20
+
+        curr_row = opt_start + len(q["options"]) + 2
 
     ws_sum.column_dimensions["A"].width = 4
     ws_sum.column_dimensions["B"].width = 14
-    ws_sum.column_dimensions["C"].width = 48
+    ws_sum.column_dimensions["C"].width = 52
     ws_sum.column_dimensions["D"].width = 18
     ws_sum.column_dimensions["E"].width = 14
     ws_sum.column_dimensions["F"].width = 14
@@ -213,7 +202,7 @@ def build_master_excel():
         ws_mat.column_dimensions[get_column_letter(col_idx)].width = w
 
     # =========================================================================
-    # TAB 3: SURVEY RESPONSES (Clean English Raw Response Data)
+    # TAB 3: SURVEY RESPONSES (Clean English Raw Response Data - 22 Columns)
     # =========================================================================
     ws_resp = wb.create_sheet(title="Survey Responses")
     ws_resp.views.sheetView[0].showGridLines = True
@@ -223,7 +212,12 @@ def build_master_excel():
         "Timestamp", "Zone", "Zonal Head", "Region", "Regional Head", 
         "SAP Territory Code", "Territory Name", "SAP MIO Code", "MIO / Sr. MIO Name", 
         "Doctor Full Name", "Doctor RPL ID", 
-        "Q1 Code", "Q1 Answer (Trimester)", "Q2 Code", "Q2 Answer (GERD Symptom)", "Survey Record ID"
+        "Q1 Code", "Q1 Answer (Trimester)", 
+        "Q2 Code", "Q2 Answer (GERD Symptom)", 
+        "Q3 Code", "Q3 Answer (Lifestyle Resolution)", 
+        "Q4 Code", "Q4 Answer (First Choice Medicine)", 
+        "Q5 Code", "Q5 Answer (Preferred PPI Molecule)", 
+        "Survey Record ID"
     ]
 
     for c_idx, h in enumerate(resp_headers, start=1):
@@ -231,18 +225,24 @@ def build_master_excel():
         cell.font = font_header
         cell.fill = fill_blue
         cell.alignment = align_center
-        ws_resp.row_dimensions[1].height = 28
+        ws_resp.row_dimensions[1].height = 32
 
     resp_widths = {
-        1: 20, 2: 18, 3: 20, 4: 20, 5: 22, 6: 15, 7: 18, 8: 12, 9: 26,
-        10: 25, 11: 14, 12: 10, 13: 26, 14: 10, 15: 38, 16: 22
+        1: 20, 2: 18, 3: 20, 4: 20, 5: 22, 6: 15, 7: 20, 8: 12, 9: 26,
+        10: 25, 11: 14, 
+        12: 10, 13: 26, 
+        14: 10, 15: 38, 
+        16: 10, 17: 38, 
+        18: 10, 19: 34, 
+        20: 10, 21: 34, 
+        22: 24
     }
     for col_idx, w in resp_widths.items():
         ws_resp.column_dimensions[get_column_letter(col_idx)].width = w
 
     print(f"Saving Master Excel to: {output_path}")
     wb.save(output_path)
-    print("Master Excel successfully built!")
+    print("Master Excel successfully built with all 5 questions!")
 
 if __name__ == '__main__':
     build_master_excel()
