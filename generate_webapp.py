@@ -1582,16 +1582,19 @@ def build():
           <div class="card" style="padding: 16px; background: #ffffff; border: 1.5px solid var(--border);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
               <div>
-                <h4 style="font-size: 14px; font-weight: 800; color: #0f172a;">🔍 Territory Submission Explorer</h4>
-                <p style="font-size: 11px; color: var(--text-muted);">Check if a territory has submitted survey data</p>
+                <h4 style="font-size: 14px; font-weight: 800; color: #0f172a;">📋 Survey Submissions & Explorer</h4>
+                <p style="font-size: 11px; color: var(--text-muted);">All doctor inputs listed serially below. Search or filter to narrow down.</p>
               </div>
-              <span class="badge badge-primary" id="adminTerrStatusBadge">Select Territory</span>
+              <span class="badge badge-primary" id="adminTerrStatusBadge">All Surveys</span>
             </div>
 
             <!-- Quick Search Input -->
             <div class="form-group" style="margin-bottom: 8px;">
-              <label class="form-label" style="font-size: 12px;">Quick Search (MIO Code, Terr Code, Name)</label>
-              <input type="text" id="adminQuickSearch" class="form-control" placeholder="Type MIO Code, Terr Code, or Name..." style="font-size: 13px; padding: 8px 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 0;">🔍 Search Submissions (Doctor, RPL ID, Territory, MIO)</label>
+                <button type="button" id="btnAdminResetSearch" style="background: none; border: none; color: var(--primary); font-size: 11px; cursor: pointer; text-decoration: underline; padding: 0; font-weight: 600;">Reset Filters</button>
+              </div>
+              <input type="text" id="adminQuickSearch" class="form-control" placeholder="Search by Doctor Name, RPL ID, Territory, MIO, Region..." style="font-size: 13px; padding: 9px 12px;">
               <div id="adminSearchFeedback" class="search-feedback" style="font-size: 11px; margin-top: 4px;">
                 <span>⚠️ Not Found</span>
               </div>
@@ -1629,20 +1632,22 @@ def build():
             </div>
 
             <!-- Doctor Submissions Table -->
-            <div class="data-table-container" style="max-height: 180px;">
+            <div class="data-table-container" style="max-height: 350px; overflow-y: auto;">
               <table class="data-table">
                 <thead>
                   <tr>
                     <th>#</th>
                     <th>Doctor Name</th>
                     <th>RPL ID</th>
+                    <th>Territory</th>
+                    <th>MIO Name</th>
                     <th>Trimester (Q1)</th>
                     <th>Symptom (Q2)</th>
                     <th>Date & Time</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyAdminDocs">
-                  <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Select or search a territory to inspect submissions</td></tr>
+                  <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 14px;">Loading survey submissions...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -2312,6 +2317,10 @@ def build():
       // Admin Modal Open
       document.getElementById("btnAdminOpen").addEventListener("click", () => {{
         document.getElementById("adminModal").classList.add("active");
+        if (isAdminLoggedIn) {{
+          refreshAdminStats();
+          renderAdminSurveys();
+        }}
       }});
 
       // Admin Modal Close
@@ -3299,17 +3308,14 @@ def build():
         `;
       }});
 
-      const currentAdminTerr = document.getElementById("adminTerrSelect") ? document.getElementById("adminTerrSelect").value : "";
-      if (currentAdminTerr) {{
-        renderAdminTerrReport(currentAdminTerr);
-      }}
+      renderAdminSurveys();
     }}
 
-    // Admin Territory Explorer Functions
+    // Admin Survey Explorer & Submissions List (Serial #1, #2, ...)
     function populateAdminTerrSelect(terrs, selectedTerrCode = "") {{
       const terrSelect = document.getElementById("adminTerrSelect");
       if (!terrSelect) return;
-      terrSelect.innerHTML = '<option value="">-- Choose Territory / MIO --</option>';
+      terrSelect.innerHTML = '<option value="">-- All Territories in Selection --</option>';
       const sorted = [...terrs].sort((a, b) => (a.terr_name || "").localeCompare(b.terr_name || ""));
       sorted.forEach(t => {{
         const opt = document.createElement("option");
@@ -3346,85 +3352,178 @@ def build():
       const regTerrs = TERRITORIES.filter(t => t.zone_name === match.zone_name && t.region_name === match.region_name);
       populateAdminTerrSelect(regTerrs, match.terr_code);
 
-      renderAdminTerrReport(match.terr_code);
+      renderAdminSurveys();
     }}
 
-    function renderAdminTerrReport(terrCode) {{
+    function renderAdminSurveys() {{
       const surveys = JSON.parse(localStorage.getItem(LS_SURVEYS) || "[]");
-      const filtered = terrCode ? surveys.filter(s => s.sap_territory_code === terrCode) : [];
-      const terrObj = TERRITORIES.find(t => t.terr_code === terrCode);
+      const searchInput = document.getElementById("adminQuickSearch");
+      const searchTerm = (searchInput ? searchInput.value : "").trim().toLowerCase();
+      const zoneSelect = document.getElementById("adminZoneSelect");
+      const regSelect = document.getElementById("adminRegionSelect");
+      const terrSelect = document.getElementById("adminTerrSelect");
+      const feedback = document.getElementById("adminSearchFeedback");
+
+      const selectedZone = zoneSelect ? zoneSelect.value : "";
+      const selectedReg = regSelect ? regSelect.value : "";
+      const selectedTerr = terrSelect ? terrSelect.value : "";
 
       const summaryBox = document.getElementById("adminTerrSummaryBox");
       const statusBadge = document.getElementById("adminTerrStatusBadge");
       const dispStatus = document.getElementById("adminDispStatusBadge");
       const tbody = document.getElementById("tbodyAdminDocs");
 
-      if (!terrCode || !terrObj) {{
+      if (!tbody) return;
+
+      // Filter surveys according to hierarchy dropdowns and search term
+      const filtered = surveys.filter(s => {{
+        if (selectedTerr && s.sap_territory_code !== selectedTerr) return false;
+        if (selectedReg && s.region !== selectedReg) return false;
+        if (selectedZone && s.zone !== selectedZone) return false;
+
+        if (searchTerm) {{
+          const docName = (s.doctor_name || "").toLowerCase();
+          const rplId = (s.doctor_rpl_id || "").toLowerCase();
+          const terrCode = (s.sap_territory_code || "").toLowerCase();
+          const terrName = (s.territory || "").toLowerCase();
+          const mioCode = (s.sap_mio_code || "").toLowerCase();
+          const mioName = (s.mio_name || "").toLowerCase();
+          const region = (s.region || "").toLowerCase();
+          const zone = (s.zone || "").toLowerCase();
+          const q1Ans = (s.q1_answer_en || s.q1_code || "").toLowerCase();
+          const q2Ans = (s.q2_answer_en || s.q2_code || "").toLowerCase();
+
+          const matches = docName.includes(searchTerm) ||
+                          rplId.includes(searchTerm) ||
+                          terrCode.includes(searchTerm) ||
+                          terrName.includes(searchTerm) ||
+                          mioCode.includes(searchTerm) ||
+                          mioName.includes(searchTerm) ||
+                          region.includes(searchTerm) ||
+                          zone.includes(searchTerm) ||
+                          q1Ans.includes(searchTerm) ||
+                          q2Ans.includes(searchTerm);
+          if (!matches) return false;
+        }}
+        return true;
+      }});
+
+      // Identify if a specific territory is targeted (by dropdown or distinct search query)
+      let activeTerrObj = null;
+      if (selectedTerr) {{
+        activeTerrObj = TERRITORIES.find(t => t.terr_code === selectedTerr);
+      }} else if (searchTerm) {{
+        const exactMatch = TERRITORIES.find(t =>
+          (t.terr_code && t.terr_code.toLowerCase() === searchTerm) ||
+          (t.mio_code && t.mio_code.toLowerCase() === searchTerm) ||
+          (t.terr_name && t.terr_name.toLowerCase() === searchTerm)
+        );
+        if (exactMatch) {{
+          activeTerrObj = exactMatch;
+        }}
+      }}
+
+      // Update search input feedback
+      if (searchTerm) {{
+        if (filtered.length === 0 && !activeTerrObj) {{
+          if (searchInput) searchInput.classList.add("is-invalid");
+          if (feedback) {{
+            feedback.style.display = "flex";
+            feedback.innerHTML = `<span>⚠️ No matching survey records found for "${{escapeHtml(searchTerm)}}"</span>`;
+          }}
+        }} else {{
+          if (searchInput) searchInput.classList.remove("is-invalid");
+          if (feedback) feedback.style.display = "none";
+        }}
+      }} else {{
+        if (searchInput) searchInput.classList.remove("is-invalid");
+        if (feedback) feedback.style.display = "none";
+      }}
+
+      // Update Territory Submission Summary Box & Status Badge
+      if (activeTerrObj) {{
+        if (summaryBox) summaryBox.style.display = "block";
+        const terrSurveys = surveys.filter(s => s.sap_territory_code === activeTerrObj.terr_code);
+        const hasSubmitted = terrSurveys.length > 0;
+
+        const terrNameEl = document.getElementById("adminDispTerrName");
+        const mioNameEl = document.getElementById("adminDispMioName");
+        const mioCodeEl = document.getElementById("adminDispMioCode");
+        const regNameEl = document.getElementById("adminDispRegName");
+        const docCountEl = document.getElementById("adminDispDocCount");
+
+        if (terrNameEl) terrNameEl.textContent = `${{activeTerrObj.terr_name}} (${{activeTerrObj.terr_code}})`;
+        if (mioNameEl) mioNameEl.textContent = activeTerrObj.mio_name || "Vacant";
+        if (mioCodeEl) mioCodeEl.textContent = activeTerrObj.mio_code || "N/A";
+        if (regNameEl) regNameEl.textContent = `${{activeTerrObj.region_name}} (${{activeTerrObj.zone_name}})`;
+        if (docCountEl) docCountEl.textContent = terrSurveys.length;
+
+        if (hasSubmitted) {{
+          if (statusBadge) {{
+            statusBadge.textContent = `Completed (${{terrSurveys.length}} Doctors)`;
+            statusBadge.className = "badge badge-accent";
+            statusBadge.style.background = "";
+            statusBadge.style.color = "";
+          }}
+          if (dispStatus) {{
+            dispStatus.textContent = "Submitted / Completed";
+            dispStatus.className = "badge-status badge-completed";
+          }}
+        }} else {{
+          if (statusBadge) {{
+            statusBadge.textContent = "Pending (0 Doctors)";
+            statusBadge.className = "badge";
+            statusBadge.style.background = "#fef3c7";
+            statusBadge.style.color = "#92400e";
+          }}
+          if (dispStatus) {{
+            dispStatus.textContent = "No Submission (Pending)";
+            dispStatus.className = "badge-status badge-pending";
+          }}
+        }}
+      }} else {{
         if (summaryBox) summaryBox.style.display = "none";
         if (statusBadge) {{
-          statusBadge.textContent = "Select Territory";
+          if (searchTerm || selectedZone || selectedReg) {{
+            statusBadge.textContent = `${{filtered.length}} Matching Surveys`;
+          }} else {{
+            statusBadge.textContent = `All Surveys (${{surveys.length}})`;
+          }}
           statusBadge.className = "badge badge-primary";
           statusBadge.style.background = "";
           statusBadge.style.color = "";
         }}
-        if (tbody) {{
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 14px;">Select or search a territory to inspect submissions</td></tr>';
+      }}
+
+      // Render Survey Submissions Table Serially (#1, #2, #3, ...)
+      tbody.innerHTML = "";
+      if (filtered.length === 0) {{
+        if (activeTerrObj) {{
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--danger); font-weight: 600; padding: 18px;">⚠️ No doctor surveys submitted yet by territory: ${{escapeHtml(activeTerrObj.terr_name)}} (${{escapeHtml(activeTerrObj.terr_code)}})</td></tr>`;
+        }} else if (searchTerm) {{
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--danger); font-weight: 600; padding: 18px;">⚠️ No matching survey records found for "${{escapeHtml(searchTerm)}}"</td></tr>`;
+        }} else if (selectedZone || selectedReg) {{
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 18px;">No surveys found matching the selected Zone / Region filter.</td></tr>`;
+        }} else {{
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 18px;">No doctor surveys submitted yet nationwide.</td></tr>`;
         }}
         return;
       }}
 
-      const hasSubmitted = filtered.length > 0;
-      if (summaryBox) summaryBox.style.display = "block";
-
-      document.getElementById("adminDispTerrName").textContent = `${{terrObj.terr_name}} (${{terrObj.terr_code}})`;
-      document.getElementById("adminDispMioName").textContent = terrObj.mio_name || "Vacant";
-      document.getElementById("adminDispMioCode").textContent = terrObj.mio_code || "N/A";
-      document.getElementById("adminDispRegName").textContent = `${{terrObj.region_name}} (${{terrObj.zone_name}})`;
-      document.getElementById("adminDispDocCount").textContent = filtered.length;
-
-      if (hasSubmitted) {{
-        if (statusBadge) {{
-          statusBadge.textContent = `Completed (${{filtered.length}} Doctors)`;
-          statusBadge.className = "badge badge-accent";
-          statusBadge.style.background = "";
-          statusBadge.style.color = "";
-        }}
-        if (dispStatus) {{
-          dispStatus.textContent = "Submitted / Completed";
-          dispStatus.className = "badge-status badge-completed";
-        }}
-      }} else {{
-        if (statusBadge) {{
-          statusBadge.textContent = "Pending (0 Doctors)";
-          statusBadge.className = "badge";
-          statusBadge.style.background = "#fef3c7";
-          statusBadge.style.color = "#92400e";
-        }}
-        if (dispStatus) {{
-          dispStatus.textContent = "No Submission (Pending)";
-          dispStatus.className = "badge-status badge-pending";
-        }}
-      }}
-
-      if (tbody) {{
-        tbody.innerHTML = "";
-        if (filtered.length === 0) {{
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger); font-weight: 600; padding: 16px;">⚠️ No doctor surveys submitted yet by this territory</td></tr>';
-        }} else {{
-          filtered.forEach((s, idx) => {{
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td>${{idx + 1}}</td>
-              <td><strong>${{escapeHtml(s.doctor_name)}}</strong></td>
-              <td><code>${{escapeHtml(s.doctor_rpl_id)}}</code></td>
-              <td>${{escapeHtml(s.q1_answer_en || s.q1_code || "-")}}</td>
-              <td>${{escapeHtml(s.q2_answer_en || s.q2_code || "-")}}</td>
-              <td>${{escapeHtml(s.formatted_time || s.timestamp || "-")}}</td>
-            `;
-            tbody.appendChild(tr);
-          }});
-        }}
-      }}
+      filtered.forEach((s, idx) => {{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="font-weight: 700; color: var(--primary);">#${{idx + 1}}</td>
+          <td><strong>${{escapeHtml(s.doctor_name || "-")}}</strong></td>
+          <td><code style="font-weight: 600;">${{escapeHtml(s.doctor_rpl_id || "-")}}</code></td>
+          <td>${{escapeHtml(s.territory || s.sap_territory_code || "-")}} <small style="color:var(--text-muted);">(${{escapeHtml(s.sap_territory_code || "-")}})</small></td>
+          <td>${{escapeHtml(s.mio_name || "-")}}</td>
+          <td><span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 11px;">${{escapeHtml(s.q1_answer_en || s.q1_code || "-")}}</span></td>
+          <td><span class="badge" style="background: #fef3c7; color: #92400e; font-size: 11px;">${{escapeHtml(s.q2_answer_en || s.q2_code || "-")}}</span></td>
+          <td><small style="color: var(--text-muted);">${{escapeHtml(s.formatted_time || s.timestamp || "-")}}</small></td>
+        `;
+        tbody.appendChild(tr);
+      }});
     }}
 
     function initAdminTerritoryExplorer() {{
@@ -3433,6 +3532,7 @@ def build():
       const terrSelect = document.getElementById("adminTerrSelect");
       const searchInput = document.getElementById("adminQuickSearch");
       const feedback = document.getElementById("adminSearchFeedback");
+      const btnReset = document.getElementById("btnAdminResetSearch");
 
       if (!zoneSelect) return;
 
@@ -3447,117 +3547,69 @@ def build():
 
       populateAdminTerrSelect(TERRITORIES);
 
+      // Render all surveys serially on initial load
+      renderAdminSurveys();
+
       zoneSelect.addEventListener("change", (e) => {{
         const zone = e.target.value;
-        if (searchInput) {{
-          searchInput.value = "";
-          searchInput.classList.remove("is-invalid");
-        }}
-        if (feedback) feedback.style.display = "none";
-
         if (!zone) {{
           regSelect.innerHTML = '<option value="">-- First Select Zone --</option>';
           regSelect.disabled = true;
           populateAdminTerrSelect(TERRITORIES);
-          renderAdminTerrReport("");
-          return;
+        }} else {{
+          const regions = [...new Set(TERRITORIES.filter(t => t.zone_name === zone).map(t => t.region_name))].filter(Boolean).sort();
+          regSelect.innerHTML = '<option value="">-- All Regions in Zone --</option>';
+          regions.forEach(r => {{
+            const opt = document.createElement("option");
+            opt.value = r;
+            opt.textContent = r;
+            regSelect.appendChild(opt);
+          }});
+          regSelect.disabled = false;
+
+          const zoneTerrs = TERRITORIES.filter(t => t.zone_name === zone);
+          populateAdminTerrSelect(zoneTerrs);
         }}
-
-        const regions = [...new Set(TERRITORIES.filter(t => t.zone_name === zone).map(t => t.region_name))].filter(Boolean).sort();
-        regSelect.innerHTML = '<option value="">-- All Regions in Zone --</option>';
-        regions.forEach(r => {{
-          const opt = document.createElement("option");
-          opt.value = r;
-          opt.textContent = r;
-          regSelect.appendChild(opt);
-        }});
-        regSelect.disabled = false;
-
-        const zoneTerrs = TERRITORIES.filter(t => t.zone_name === zone);
-        populateAdminTerrSelect(zoneTerrs);
-        renderAdminTerrReport("");
+        renderAdminSurveys();
       }});
 
       regSelect.addEventListener("change", (e) => {{
         const zone = zoneSelect.value;
         const reg = e.target.value;
-        if (searchInput) {{
-          searchInput.value = "";
-          searchInput.classList.remove("is-invalid");
-        }}
-        if (feedback) feedback.style.display = "none";
-
         if (!reg) {{
           const zoneTerrs = zone ? TERRITORIES.filter(t => t.zone_name === zone) : TERRITORIES;
           populateAdminTerrSelect(zoneTerrs);
-          renderAdminTerrReport("");
-          return;
+        }} else {{
+          const regTerrs = TERRITORIES.filter(t => (!zone || t.zone_name === zone) && t.region_name === reg);
+          populateAdminTerrSelect(regTerrs);
         }}
-
-        const regTerrs = TERRITORIES.filter(t => (!zone || t.zone_name === zone) && t.region_name === reg);
-        populateAdminTerrSelect(regTerrs);
-        renderAdminTerrReport("");
+        renderAdminSurveys();
       }});
 
-      terrSelect.addEventListener("change", (e) => {{
-        const val = e.target.value;
-        if (val) {{
+      terrSelect.addEventListener("change", () => {{
+        renderAdminSurveys();
+      }});
+
+      if (searchInput) {{
+        searchInput.addEventListener("input", () => {{
+          renderAdminSurveys();
+        }});
+      }}
+
+      if (btnReset) {{
+        btnReset.addEventListener("click", () => {{
           if (searchInput) {{
             searchInput.value = "";
             searchInput.classList.remove("is-invalid");
           }}
           if (feedback) feedback.style.display = "none";
-        }}
-        renderAdminTerrReport(val);
-      }});
-
-      searchInput.addEventListener("input", (e) => {{
-        const term = e.target.value.trim().toLowerCase();
-
-        if (!term) {{
-          searchInput.classList.remove("is-invalid");
-          if (feedback) feedback.style.display = "none";
           zoneSelect.value = "";
           regSelect.innerHTML = '<option value="">-- First Select Zone --</option>';
           regSelect.disabled = true;
           populateAdminTerrSelect(TERRITORIES);
-          renderAdminTerrReport("");
-          return;
-        }}
-
-        let match = TERRITORIES.find(t => 
-          (t.mio_code && t.mio_code.toLowerCase() === term) ||
-          (t.terr_code && t.terr_code.toLowerCase() === term)
-        );
-
-        if (!match) {{
-          match = TERRITORIES.find(t => 
-            (t.mio_code && t.mio_code.toLowerCase().startsWith(term)) ||
-            (t.terr_code && t.terr_code.toLowerCase().startsWith(term)) ||
-            (t.terr_name && t.terr_name.toLowerCase().startsWith(term)) ||
-            (t.mio_name && t.mio_name.toLowerCase().startsWith(term))
-          );
-        }}
-
-        if (!match) {{
-          match = TERRITORIES.find(t => 
-            (t.mio_code && t.mio_code.toLowerCase().includes(term)) ||
-            (t.terr_code && t.terr_code.toLowerCase().includes(term)) ||
-            (t.terr_name && t.terr_name.toLowerCase().includes(term)) ||
-            (t.mio_name && t.mio_name.toLowerCase().includes(term))
-          );
-        }}
-
-        if (match) {{
-          searchInput.classList.remove("is-invalid");
-          if (feedback) feedback.style.display = "none";
-          selectAdminTerritory(match.terr_code);
-        }} else {{
-          searchInput.classList.add("is-invalid");
-          if (feedback) feedback.style.display = "flex";
-          renderAdminTerrReport("");
-        }}
-      }});
+          renderAdminSurveys();
+        }});
+      }}
     }}
 
     // Export Master Excel File
