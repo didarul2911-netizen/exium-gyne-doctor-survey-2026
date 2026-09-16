@@ -2377,7 +2377,7 @@ def build():
 
       // Clear All Survey Data (Local Storage & Google Sheet Backend)
       document.getElementById("btnClearData").addEventListener("click", async () => {{
-        if (confirm("⚠️ WARNING: This will permanently delete ALL survey responses from BOTH Local Storage and your connected Google Sheet (including submissions from all field personnel nationwide).\n\nAre you sure you want to proceed?")) {{
+        if (confirm(`⚠️ WARNING: This will permanently delete ALL survey responses from BOTH Local Storage and your connected Google Sheet (including submissions from all field personnel nationwide).\n\nAre you sure you want to proceed?`)) {{
           if (confirm("FINAL CONFIRMATION: This action CANNOT be undone. Delete all survey records everywhere?")) {{
             // 1. Clear local storage
             localStorage.removeItem(LS_SURVEYS);
@@ -3728,8 +3728,6 @@ def build():
 
       if (showFeedback) showToast(`⬆️ Pushing ${{unsynced.length}} local records to Google Sheet...`);
 
-      if (dot) dot.className = "status-dot syncing";
-      if (text) text.textContent = "Syncing...";
 
       try {{
         await fetch(cloudApiUrl, {{
@@ -3763,8 +3761,6 @@ def build():
 
       if (showFeedback) showToast("🔄 Fetching latest surveys from Google Sheet...");
 
-      if (dot) dot.className = "status-dot syncing";
-      if (text) text.textContent = "Pulling...";
 
       try {{
         const sep = cloudApiUrl.includes("?") ? "&" : "?";
